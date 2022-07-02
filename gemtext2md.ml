@@ -34,6 +34,12 @@ type line =
   | HeadingL of (heading_level * string)
   | BlankL
 
+type block =
+  | Preformatted of string list
+  | Para of string
+  | Links of (string * string option) list
+  | Heading of (heading_level * string)
+
 exception Malformed_link
 exception Malformed_heading
 
@@ -42,26 +48,54 @@ let heading_chars = function
   | H2 -> "##"
   | H3 -> "###"
 
-let string_of_link url tag = 
+let string_of_link (url, tag) =
   let string_of_link' = function
-    | None     -> ["* [";  url;  "](";  url;  ")"]
-    | Some tag -> ["* [";  tag;  "](";  url;  ")"]
+    | None     -> ["* [";  url;  "](";  url;  ")\n"]
+    | Some tag -> ["* [";  tag;  "](";  url;  ")\n"]
   in
     tag |> string_of_link' |> String.concat ""
 
+let string_of_links ll =
+  let link_block = List.map string_of_link ll |> String.concat "" in
+    link_block ^ "\n"
+
 (* Generate a string in CommonMark format representing the Gemtext line type.
    Sometimes append a newline. *)
-let string_of_line = function
-  | BlankL           -> ""
-  | ParaL s          -> s ^ "\n"
-  | LinkL (url, tag) -> string_of_link url tag
-  | HeadingL (h, s)  -> [(heading_chars h);  " ";  s;  "\n"] |> String.concat ""
-  | PreformattedL ss -> "```\n" ^ (String.concat "\n" ss) ^ "\n```"
+let string_of_block = function
+  | Para s          -> s ^ "\n\n"
+  | Links []        -> ""
+  | Links ll        -> List.rev ll |> string_of_links
+  | Heading (h, s)  -> [(heading_chars h); " "; s; "\n\n"] |> String.concat ""
+  | Preformatted ss -> "```\n" ^ (String.concat "\n" ss) ^ "\n```\n\n"
 
-let remove_blanks = List.filter (function
-  | BlankL -> false
-  | _     -> true
-)
+(* Strip out blank lines, and gather link groups together into lists *)
+let blocks_of_lines lines =
+  let rec blocks_of_lines' acc = function
+    | ([], []) ->
+       acc
+
+    | (ll, []) ->
+       Links ll :: acc
+
+    | (ll, BlankL :: tl) ->
+       blocks_of_lines' (Links ll :: acc) ([], tl)
+
+    | (ll, ParaL x :: tl) ->
+       blocks_of_lines' (Para x :: Links ll :: acc) ([], tl)
+
+    | (ll, HeadingL x :: tl) ->
+       blocks_of_lines' (Heading x :: Links ll :: acc) ([], tl)
+
+    | (ll, PreformattedL x :: tl) ->
+       blocks_of_lines' (Preformatted x :: Links ll :: acc) ([], tl)
+
+    | ([], LinkL l :: tl) ->
+       blocks_of_lines' acc ([l], tl)
+
+    | (ll, LinkL l :: tl) ->
+       blocks_of_lines' acc (l :: ll, tl)
+  in
+    blocks_of_lines' [] ([], lines) |> List.rev
 
 let link_of_line line =
   match String.split_on_char ' ' line with
@@ -160,8 +194,9 @@ let decode_lines lines =
     decode_lines' [] [] lines
 
 let dump stream =
-  List.map string_of_line stream |>
-  List.map print_endline
+  List.map string_of_block stream |>
+  String.concat "" |>
+  print_endline
 
 let get_lines () =
   let rec get_lines' acc =
@@ -174,7 +209,7 @@ let main () =
   get_lines |>
   gather_preformatted |>
   decode_lines |>
-  remove_blanks |>
+  blocks_of_lines |>
   dump |>
   ignore
 
