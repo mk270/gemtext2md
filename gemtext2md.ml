@@ -77,6 +77,7 @@ let make_heading s level offset =
     HeadingL (level, after_hashes (trim s) offset)
 
 let line_of_string s =
+  (* care must be taken to deal with anomalous spaces after leading hashes *)
   let line_of_string' = function
     (* links *)
     | ['=';   '>']                     -> raise Malformed_link
