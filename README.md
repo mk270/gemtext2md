@@ -3,6 +3,9 @@ gemtext2md
 
 A gemini text to Markdown convertor, by Martin Keegan.
 
+Some care is taken to get reasonable whitespace around the various blocks,
+and to consolidate consecutive links into lists.
+
 Usage
 -----
 
