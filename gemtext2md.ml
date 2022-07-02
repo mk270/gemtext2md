@@ -116,15 +116,13 @@ let gather_preformatted lines =
     with Invalid_argument _ -> None
   in
 
-  let rec gather_preformatted' (preformatted : bool) acc = function
+  let rec gather_preformatted' (pref : bool) acc = function
     | [] -> acc
     | hd :: tl ->
        (match prefix hd with
-         | Some "```" ->
-            gather_preformatted' (not preformatted) acc tl
+         | Some "```" -> gather_preformatted' (not pref) acc tl
          | None
-         | Some _ ->
-            (preformatted, hd) :: gather_preformatted' preformatted acc tl
+         | Some _ -> (pref, hd) :: gather_preformatted' pref acc tl
        )
   in
     gather_preformatted' false [] lines
