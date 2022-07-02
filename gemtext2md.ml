@@ -70,6 +70,9 @@ let string_of_block = function
 
 (* Strip out blank lines, and gather link groups together into lists *)
 let blocks_of_lines lines =
+  (* The tuple upon which the following function switches represents
+     (the accumulated list of links, if any *
+      the remaining lines to process, if any) *)
   let rec blocks_of_lines' acc = function
     | ([], []) ->
        acc
