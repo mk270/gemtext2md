@@ -137,7 +137,6 @@ let decode_lines lines =
     | [], [] ->
        (* end of file, but not during a preformatted block *)
        acc
-
     | pls, [] ->
        (* end of file during preformatted block *)
        PreformattedL pls :: acc
@@ -145,7 +144,6 @@ let decode_lines lines =
     | [], (true, s) :: tl ->
        (* first line of a preformatted block *)
        decode_lines' [s] acc tl
-
     | pls, (true, s) :: tl ->
        (* in a preformatted block, but not the first line of that block *)
        decode_lines' (s :: pls) acc tl
@@ -154,7 +152,6 @@ let decode_lines lines =
        (* a non-preformatted line, after another non-preformatted line *)
        let l = line_of_string s in
          decode_lines' [] (l :: acc) tl
-
     | pls, (false, s) :: tl ->
        (* first line after a preformatted block *)
        let l = line_of_string s in
