@@ -168,26 +168,23 @@ let decode_lines lines =
   let rec decode_lines' pref_acc acc lines =
     (* if pref_acc is non-empty, then the previous line was preformatted *)
     match pref_acc, lines with
-    | [], [] ->
-       (* end of file, but not during a preformatted block *)
+    (* end of file *)
+    | [], [] -> (* not during a preformatted block *)
        acc
-    | pls, [] ->
-       (* end of file during preformatted block *)
+    | pls, [] -> (* during preformatted block *)
        PreformattedL pls :: acc
 
-    | [], (true, s) :: tl ->
-       (* first line of a preformatted block *)
+    (* in a preformatted block *)
+    | [], (true, s) :: tl -> (* first line of a preformatted block *)
        decode_lines' [s] acc tl
-    | pls, (true, s) :: tl ->
-       (* in a preformatted block, but not the first line of that block *)
+    | pls, (true, s) :: tl -> (* but not the first line of that block *)
        decode_lines' (s :: pls) acc tl
 
-    | [], (false, s) :: tl ->
-       (* a non-preformatted line, after another non-preformatted line *)
+    (* outside preformatted block *)
+    | [], (false, s) :: tl -> (* usual case *)
        let l = line_of_string s in
          decode_lines' [] (l :: acc) tl
-    | pls, (false, s) :: tl ->
-       (* first line after a preformatted block *)
+    | pls, (false, s) :: tl -> (* first line after a preformatted block *)
        let l = line_of_string s in
          decode_lines' [] (l :: PreformattedL pls :: acc) tl
   in
