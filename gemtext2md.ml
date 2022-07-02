@@ -21,9 +21,9 @@
      $ ocaml gemtext2md.ml < myfile.gemini > myfile.md                    *)
 
 (* The author is perfectly aware that this code is unidiomatic,
-   inefficient, inelegant, undocumented, and depends on loading the
-   whole input stream into memory, etc, etc. It is simply not worth
-   polishing it. *)
+   inefficient, inelegant, unprincipled, undocumented, depends on
+   loading the whole input stream into memory, makes your curtains
+   fade, etc, etc. It is simply not worth polishing it. *)
 
 type heading_level = H1 | H2 | H3
 
