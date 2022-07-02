@@ -28,11 +28,11 @@
 type heading_level = H1 | H2 | H3
 
 type line =
-  | Preformatted of string list
-  | Para of string
-  | Link of (string * string option)
-  | Heading of (heading_level * string)
-  | Blank
+  | PreformattedL of string list
+  | ParaL of string
+  | LinkL of (string * string option)
+  | HeadingL of (heading_level * string)
+  | BlankL
 
 exception Malformed_link
 exception Malformed_heading
@@ -52,29 +52,29 @@ let string_of_link url tag =
 (* Generate a string in CommonMark format representing the Gemtext line type.
    Sometimes append a newline. *)
 let string_of_line = function
-  | Blank           -> ""
-  | Para s          -> s ^ "\n"
-  | Link (url, tag) -> string_of_link url tag
-  | Heading (h, s)  -> [(heading_chars h);  " ";  s;  "\n"] |> String.concat ""
-  | Preformatted ss -> "```\n" ^ (String.concat "\n" ss) ^ "\n```"
+  | BlankL           -> ""
+  | ParaL s          -> s ^ "\n"
+  | LinkL (url, tag) -> string_of_link url tag
+  | HeadingL (h, s)  -> [(heading_chars h);  " ";  s;  "\n"] |> String.concat ""
+  | PreformattedL ss -> "```\n" ^ (String.concat "\n" ss) ^ "\n```"
 
 let remove_blanks = List.filter (function
-  | Blank -> false
+  | BlankL -> false
   | _     -> true
 )
 
 let link_of_line line =
   match String.split_on_char ' ' line with
   | [ "=>"; ""  ]       -> raise Malformed_link
-  | [ "=>"; url ]       -> Link (url, None)
-  | "=>" :: url :: tag  -> Link (url, Some (tag |> String.concat " "))
+  | [ "=>"; url ]       -> LinkL (url, None)
+  | "=>" :: url :: tag  -> LinkL (url, Some (tag |> String.concat " "))
   | _                   -> raise Malformed_link
 
 let trim s = s (* TODO: should strip leading/trailing whitespace *)
 
 let make_heading s level offset =
   let after_hashes s n = String.sub s n (String.length s - n) in
-    Heading (level, after_hashes (trim s) offset)
+    HeadingL (level, after_hashes (trim s) offset)
 
 let line_of_string s =
   let line_of_string' = function
@@ -100,8 +100,8 @@ let line_of_string s =
     |  '#' :: _tl                      -> raise Malformed_heading
 
     (* paragraphs / blanks *)
-    | []                               -> Blank
-    | _                                -> Para (trim s)
+    | []                               -> BlankL
+    | _                                -> ParaL (trim s)
   in
     String.to_seq s |> List.of_seq |> line_of_string'
 
@@ -141,7 +141,7 @@ let decode_lines lines =
 
     | pls, [] ->
        (* end of file during preformatted block *)
-       Preformatted pls :: acc
+       PreformattedL pls :: acc
 
     | [], (true, s) :: tl ->
        (* first line of a preformatted block *)
@@ -159,7 +159,7 @@ let decode_lines lines =
     | pls, (false, s) :: tl ->
        (* first line after a preformatted block *)
        let l = line_of_string s in
-         decode_lines' [] (l :: Preformatted pls :: acc) tl
+         decode_lines' [] (l :: PreformattedL pls :: acc) tl
   in
     decode_lines' [] [] lines
 
