@@ -69,7 +69,7 @@ let string_of_block = function
   | Preformatted ss -> "```\n" ^ (String.concat "\n" ss) ^ "\n```\n\n"
 
 (* Strip out blank lines, and gather link groups together into lists *)
-let blocks_of_lines lines =
+let blocks_of_lines : line list -> block list = fun lines ->
   (* The tuple upon which the following function switches represents
      (the accumulated list of links, if any *
       the remaining lines to process, if any) *)
@@ -143,7 +143,7 @@ let line_of_string s =
   in
     String.to_seq s |> List.of_seq |> line_of_string'
 
-let gather_preformatted lines =
+let gather_preformatted : string list -> (bool * string) list = fun lines ->
   (* Return a list of tuples representing each line, and whether the
      line occurs within a preformatted block.
      The tuples are returned in reverse order. *)
@@ -165,7 +165,7 @@ let gather_preformatted lines =
   in
     gather_preformatted' false [] lines
 
-let decode_lines lines =
+let decode_lines : (bool * string) list -> line list = fun lines ->
   (* pref_acc is a temporary accumulator to gather preformatted lines
      before the end of the preformatted block *)
   let rec decode_lines' pref_acc acc lines =
@@ -193,12 +193,12 @@ let decode_lines lines =
   in
     decode_lines' [] [] lines
 
-let dump stream =
+let dump : block list -> unit = fun stream ->
   List.map string_of_block stream |>
   String.concat "" |>
   print_endline
 
-let get_lines () =
+let get_lines : unit -> string list = fun () ->
   let rec get_lines' acc =
     try let line = read_line () in get_lines' (line :: acc)
     with End_of_file -> acc
