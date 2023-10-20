@@ -49,7 +49,7 @@ let heading_chars : heading_level -> string = function
   | H3 -> "###"
 
 let string_of_link : (string * string option) -> string = fun (url, tag) ->
-  let string_of_link' = function
+  let string_of_link' : string option -> string list = function
     | None     -> ["* [";  url;  "](";  url;  ")\n"]
     | Some tag -> ["* [";  tag;  "](";  url;  ")\n"]
   in
@@ -73,7 +73,7 @@ let blocks_of_lines : line list -> block list = fun lines ->
   (* The tuple upon which the following function switches represents
      (the accumulated list of links, if any *
       the remaining lines to process, if any) *)
-  let rec blocks_of_lines' acc = function
+  let rec blocks_of_lines' (acc : block list) = function
     | ([], []) ->
        acc
 
@@ -116,7 +116,7 @@ let make_heading : string -> heading_level -> int -> line =
 
 let line_of_string : string -> line = fun s ->
   (* care must be taken to deal with anomalous spaces after leading hashes *)
-  let line_of_string' = function
+  let line_of_string' : char list -> line = function
     (* links *)
     | ['=';   '>']                     -> raise Malformed_link
     |  '=' :: '>' :: ' ' :: _tl        -> link_of_line s
@@ -170,7 +170,9 @@ let gather_preformatted : string list -> (bool * string) list = fun lines ->
 let decode_lines : (bool * string) list -> line list = fun lines ->
   (* pref_acc is a temporary accumulator to gather preformatted lines
      before the end of the preformatted block *)
-  let rec decode_lines' pref_acc acc lines =
+    let rec decode_lines' : string list -> line list -> (bool * string) list
+                            -> line list = fun pref_acc acc lines ->
+
     (* if pref_acc is non-empty, then the previous line was preformatted *)
     match pref_acc, lines with
     (* end of file *)
