@@ -43,25 +43,25 @@ type block =
 exception Malformed_link
 exception Malformed_heading
 
-let heading_chars = function
+let heading_chars : heading_level -> string = function
   | H1 -> "#"
   | H2 -> "##"
   | H3 -> "###"
 
-let string_of_link (url, tag) =
+let string_of_link : (string * string option) -> string = fun (url, tag) ->
   let string_of_link' = function
     | None     -> ["* [";  url;  "](";  url;  ")\n"]
     | Some tag -> ["* [";  tag;  "](";  url;  ")\n"]
   in
     tag |> string_of_link' |> String.concat ""
 
-let string_of_links ll =
+let string_of_links : (string * string option) list -> string = fun ll ->
   let link_block = List.map string_of_link ll |> String.concat "" in
     link_block ^ "\n"
 
 (* Generate a string in CommonMark format representing the Gemtext line type.
    Sometimes append a newline. *)
-let string_of_block = function
+let string_of_block : block -> string = function
   | Para s          -> s ^ "\n\n"
   | Links []        -> ""
   | Links ll        -> List.rev ll |> string_of_links
@@ -100,7 +100,7 @@ let blocks_of_lines : line list -> block list = fun lines ->
   in
     blocks_of_lines' [] ([], lines) |> List.rev
 
-let link_of_line line =
+let link_of_line : string -> line = fun line ->
   match String.split_on_char ' ' line with
   | [ "=>"; ""  ]       -> raise Malformed_link
   | [ "=>"; url ]       -> LinkL (url, None)
@@ -109,11 +109,12 @@ let link_of_line line =
 
 let trim s = s (* TODO: should strip leading/trailing whitespace *)
 
-let make_heading s level offset =
+let make_heading : string -> heading_level -> int -> line =
+  fun s level offset ->
   let after_hashes s n = String.sub s n (String.length s - n) in
     HeadingL (level, after_hashes (trim s) offset)
 
-let line_of_string s =
+let line_of_string : string -> line = fun s ->
   (* care must be taken to deal with anomalous spaces after leading hashes *)
   let line_of_string' = function
     (* links *)
@@ -148,13 +149,14 @@ let gather_preformatted : string list -> (bool * string) list = fun lines ->
      line occurs within a preformatted block.
      The tuples are returned in reverse order. *)
 
-  let prefix s =
+  let prefix : string -> string option = fun s ->
     (* Get the first three characters of input, or return None *)
     try Some (String.sub s 0 3)
     with Invalid_argument _ -> None
   in
 
-  let rec gather_preformatted' (pref : bool) acc = function
+  let rec gather_preformatted' (pref : bool) (acc : (bool * string) list) =
+    function
     | [] -> acc
     | hd :: tl ->
        (match prefix hd with
