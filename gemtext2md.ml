@@ -173,27 +173,27 @@ let decode_lines : (bool * string) list -> line list = fun lines ->
     let rec decode_lines' : string list -> line list -> (bool * string) list
                             -> line list = fun pref_acc acc lines ->
 
-    (* if pref_acc is non-empty, then the previous line was preformatted *)
-    match pref_acc, lines with
-    (* end of file *)
-    | [], [] -> (* not during a preformatted block *)
-       acc
-    | pls, [] -> (* during preformatted block *)
-       PreformattedL pls :: acc
+      (* if pref_acc is non-empty, then the previous line was preformatted *)
+      match pref_acc, lines with
+      (* end of file *)
+      | [], [] -> (* not during a preformatted block *)
+         acc
+      | pls, [] -> (* during preformatted block *)
+         PreformattedL pls :: acc
 
-    (* in a preformatted block *)
-    | [], (true, s) :: tl -> (* first line of a preformatted block *)
-       decode_lines' [s] acc tl
-    | pls, (true, s) :: tl -> (* but not the first line of that block *)
-       decode_lines' (s :: pls) acc tl
+      (* in a preformatted block *)
+      | [], (true, s) :: tl -> (* first line of a preformatted block *)
+         decode_lines' [s] acc tl
+      | pls, (true, s) :: tl -> (* but not the first line of that block *)
+         decode_lines' (s :: pls) acc tl
 
-    (* outside preformatted block *)
-    | [], (false, s) :: tl -> (* usual case *)
-       let l = line_of_string s in
-         decode_lines' [] (l :: acc) tl
-    | pls, (false, s) :: tl -> (* first line after a preformatted block *)
-       let l = line_of_string s in
-         decode_lines' [] (l :: PreformattedL pls :: acc) tl
+      (* outside preformatted block *)
+      | [], (false, s) :: tl -> (* usual case *)
+         let l = line_of_string s in
+           decode_lines' [] (l :: acc) tl
+      | pls, (false, s) :: tl -> (* first line after a preformatted block *)
+         let l = line_of_string s in
+           decode_lines' [] (l :: PreformattedL pls :: acc) tl
   in
     decode_lines' [] [] lines
 
