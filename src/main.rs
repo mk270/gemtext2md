@@ -95,10 +95,10 @@ impl fmt::Display for Block {
         use Block::*;
 
         let s = match self {
-            ParaB(p) => format!("{}\n\n", p),
+            ParaB(p)            => format!("{}\n\n", p),
             PreformattedB(prpr) => format!("```\n{}\n```\n\n", prpr.join("\n")),
-            LinksB(ll) => string_of_links(ll.to_vec()),
-            HeadingB(h, s) => format!("{} {}\n\n", heading_chars(h), s)
+            LinksB(ll)          => string_of_links(ll.to_vec()),
+            HeadingB(h, s)      => format!("{} {}\n\n", heading_chars(h), s)
         };
 
         write!(f, "{}", s)
