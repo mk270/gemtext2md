@@ -32,8 +32,8 @@ enum HeadingLevel {
 
 #[derive(Debug)]
 enum Malformed {
-    Link,
-    Heading
+    MLink,
+    MHeading
 }
 
 #[derive(Debug)]
@@ -63,25 +63,25 @@ impl From<String> for Line {
 
         match s.chars().collect::<Vec<char>>()[..] {
             // links
-            ['=', '>']               => MalformedL(Link),
+            ['=', '>']               => MalformedL(MLink),
             ['=', '>', ' ', ..]      => link_of_line(s),
-            ['=', '>', ..]           => MalformedL(Link),
+            ['=', '>', ..]           => MalformedL(MLink),
 
             // headings
-            ['#', '#', '#']          => MalformedL(Heading),
-            ['#', '#', '#', ' ']     => MalformedL(Heading),
+            ['#', '#', '#']          => MalformedL(MHeading),
+            ['#', '#', '#', ' ']     => MalformedL(MHeading),
             ['#', '#', '#', ' ', ..] => make_heading(s, H3, 4),
             ['#', '#', '#', ..]      => make_heading(s, H3, 3),
 
-            ['#', '#', _]            => MalformedL(Heading),
-            ['#', '#']               => MalformedL(Heading),
+            ['#', '#', _]            => MalformedL(MHeading),
+            ['#', '#']               => MalformedL(MHeading),
             ['#', '#', ' ', ..]      => make_heading(s, H2, 3),
-            ['#', '#', ..]           => MalformedL(Heading),
+            ['#', '#', ..]           => MalformedL(MHeading),
 
-            ['#', ' ']               => MalformedL(Heading),
-            ['#']                    => MalformedL(Heading),
+            ['#', ' ']               => MalformedL(MHeading),
+            ['#']                    => MalformedL(MHeading),
             ['#', ' ', ..]           => make_heading(s, H1, 2),
-            ['#', ..]                => MalformedL(Heading),
+            ['#', ..]                => MalformedL(MHeading),
 
             // paragraphs / blanks
             []                       => BlankL,
@@ -142,10 +142,10 @@ fn link_of_line(line: String) -> Line {
 
     let parts: Vec<&str> = line.splitn(3, " ").collect();
     match parts.as_slice() {
-        [ "=>", "" ] => MalformedL(Malformed::Link),
+        [ "=>", "" ] => MalformedL(Malformed::MLink),
         [ "=>", url ] => LinkL(url.to_string(), None),
         [ "=>", url, tag ] => LinkL(url.to_string(), Some(tag.to_string())),
-        _ => MalformedL(Malformed::Link)
+        _ => MalformedL(Malformed::MLink)
     }
 }
 
