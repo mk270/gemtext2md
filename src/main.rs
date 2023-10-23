@@ -37,11 +37,14 @@ enum Malformed {
 }
 
 #[derive(Debug)]
+struct Heading(HeadingLevel, String);
+
+#[derive(Debug)]
 enum Line {
     PreformattedL(Vec<String>),
     ParaL(String),
     LinkL(String, Option<String>),
-    HeadingL(HeadingLevel, String),
+    HeadingL(Heading),
     BlankL,
     MalformedL(Malformed)
 }
@@ -51,7 +54,7 @@ enum Block {
     PreformattedB(Vec<String>),
     ParaB(String),
     LinksB(Vec<(String, Option<String>)>),
-    HeadingB(HeadingLevel, String)
+    HeadingB(Heading)
 }
 
 impl From<String> for Line {
@@ -90,6 +93,12 @@ impl From<String> for Line {
     }
 }
 
+impl fmt::Display for Heading {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {}", heading_chars(&self.0), self.1)
+    }
+}
+
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Block::*;
@@ -98,7 +107,7 @@ impl fmt::Display for Block {
             ParaB(p)            => format!("{}\n\n", p),
             PreformattedB(prpr) => format!("```\n{}\n```\n\n", prpr.join("\n")),
             LinksB(ll)          => string_of_links(ll.to_vec()),
-            HeadingB(h, s)      => format!("{} {}\n\n", heading_chars(h), s)
+            HeadingB(h)         => format!("{}\n\n", h)
         };
 
         write!(f, "{}", s)
@@ -155,7 +164,7 @@ fn trim(s: String) -> String { s.to_string().trim().to_string() }
 fn make_heading(s: String, level: HeadingLevel, offset: usize) -> Line {
     let trimmed = trim(s);
     let after_hashes = &trimmed[offset..];
-    Line::HeadingL(level, after_hashes.to_string())
+    Line::HeadingL(Heading(level, after_hashes.to_string()))
 }
 
 fn read_lines(tx: Sender<String>) {
@@ -237,10 +246,10 @@ fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
                     links.clear();
                     tx.send(ParaB(p)).unwrap();
                 },
-                HeadingL(lvl, s) => {
+                HeadingL(h) => {
                     tx.send(LinksB(links.clone())).unwrap();
                     links.clear();
-                    tx.send(HeadingB(lvl, s)).unwrap();
+                    tx.send(HeadingB(h)).unwrap();
                 },
                 PreformattedL(p) => {
                     tx.send(LinksB(links.clone())).unwrap();
