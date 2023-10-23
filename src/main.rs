@@ -39,11 +39,14 @@ enum Malformed {
 #[derive(Debug)]
 struct Heading(HeadingLevel, String);
 
+#[derive(Debug,Clone)]
+struct Link(String, Option<String>);
+
 #[derive(Debug)]
 enum Line {
     PreformattedL(Vec<String>),
     ParaL(String),
-    LinkL(String, Option<String>),
+    LinkL(Link),
     HeadingL(Heading),
     BlankL,
     MalformedL(Malformed)
@@ -53,7 +56,7 @@ enum Line {
 enum Block {
     PreformattedB(Vec<String>),
     ParaB(String),
-    LinksB(Vec<(String, Option<String>)>),
+    LinksB(Vec<Link>),
     HeadingB(Heading)
 }
 
@@ -99,6 +102,18 @@ impl fmt::Display for Heading {
     }
 }
 
+impl fmt::Display for Link {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Link(url, tag) = self.clone();
+        let caption = match tag {
+            Some(c) => c,
+            None => url.clone()
+        };
+
+        write!(f, "* [{}]({})\n", caption, url)
+    }
+}
+
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Block::*;
@@ -126,24 +141,15 @@ fn heading_chars(h: &HeadingLevel) -> String {
     s.to_string()
 }
 
-fn string_of_links(ll: Vec<(String,Option<String>)>) -> String {
+fn string_of_links(ll: Vec<Link>) -> String {
     if ll.is_empty() {
         return String::from("");
     }
 
     let links: Vec<String> = ll.into_iter()
-        .map(|l| string_of_link(l)).collect();
+        .map(|l| l.to_string()).collect();
 
     format!("{}\n", links.join(""))
-}
-
-fn string_of_link(link: (String,Option<String>)) -> String {
-    let (url, tag) = link;
-    let caption = match tag {
-        Some(c) => c,
-        None => url.clone()
-    };
-    format!("* [{}]({})\n", caption, url)
 }
 
 fn link_of_line(line: String) -> Line {
@@ -152,8 +158,8 @@ fn link_of_line(line: String) -> Line {
     let parts: Vec<&str> = line.splitn(3, " ").collect();
     match parts.as_slice() {
         [ "=>", "" ] => MalformedL(Malformed::MLink),
-        [ "=>", url ] => LinkL(url.to_string(), None),
-        [ "=>", url, tag ] => LinkL(url.to_string(), Some(tag.to_string())),
+        [ "=>", url ] => LinkL(Link(url.to_string(), None)),
+        [ "=>", url, tag ] => LinkL(Link(url.to_string(), Some(tag.to_string()))),
         _ => MalformedL(Malformed::MLink)
     }
 }
@@ -233,7 +239,7 @@ fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
         use Block::*;
         use Line::*;
 
-        let mut links: Vec<(String,Option<String>)> = vec![];
+        let mut links: Vec<Link> = vec![];
 
         for line in rx {
             match line {
@@ -256,8 +262,8 @@ fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
                     links.clear();
                     tx.send(PreformattedB(p)).unwrap();
                 },
-                LinkL(url, tag) => {
-                    links.push((url, tag));
+                LinkL(link) => {
+                    links.push(link);
                 },
                 MalformedL(m) => {
                     panic!("malformed line: {:?}", m);
