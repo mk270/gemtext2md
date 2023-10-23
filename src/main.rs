@@ -90,25 +90,6 @@ impl From<String> for Line {
     }
 }
 
-/*
-impl fmt::Display for Line {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use Line::*;
-
-        let s = match self {
-            PreformattedL(_) => "```",
-            ParaL(p) => p,
-            LinkL(_, _) => "LINK",
-            HeadingL(_level, _s) => "H*",
-            BlankL => "BLANK",
-            MalformedL(_) => "MALFORMED"
-        };
-
-        write!(f, "{}", s)
-    }
-}
-*/
-
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Block::*;
@@ -229,9 +210,6 @@ fn decode_lines(rx: Receiver<(bool, String)>, tx: Sender<Line>) {
                     pref_acc.clear();
                     tx.send(Line::from(l)).unwrap();
                 }
-                //,
-                //_ => tx.send(Line::ParaL(
-                //                "unimp: decode_lines".to_string())).unwrap()
             }
         }
 
