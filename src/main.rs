@@ -166,7 +166,6 @@ fn link_of_line(line: String) -> Line {
     }
 }
 
-// FIXME - broken in the original
 fn trim(s: String) -> String { s.to_string().trim().to_string() }
 
 fn make_heading(s: String, level: HeadingLevel, offset: usize) -> Line {
