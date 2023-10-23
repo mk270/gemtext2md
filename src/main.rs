@@ -48,10 +48,10 @@ enum Line {
 
 #[derive(Debug)]
 enum Block {
-    Preformatted(Vec<String>),
-    Para(String),
-    Links(Vec<(String, Option<String>)>),
-    Heading(HeadingLevel, String)
+    PreformattedB(Vec<String>),
+    ParaB(String),
+    LinksB(Vec<(String, Option<String>)>),
+    HeadingB(HeadingLevel, String)
 }
 
 impl From<String> for Line {
@@ -95,10 +95,10 @@ impl fmt::Display for Block {
         use Block::*;
 
         let s = match self {
-            Para(p) => format!("{}\n\n", p),
-            Preformatted(prpr) => format!("```\n{}\n```\n\n", prpr.join("\n")),
-            Links(ll) => string_of_links(ll.to_vec()),
-            Heading(h, s) => format!("{} {}\n\n", heading_chars(h), s)
+            ParaB(p) => format!("{}\n\n", p),
+            PreformattedB(prpr) => format!("```\n{}\n```\n\n", prpr.join("\n")),
+            LinksB(ll) => string_of_links(ll.to_vec()),
+            HeadingB(h, s) => format!("{} {}\n\n", heading_chars(h), s)
         };
 
         write!(f, "{}", s)
@@ -229,23 +229,23 @@ fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
         for line in rx {
             match line {
                 BlankL => {
-                    tx.send(Links(links.clone())).unwrap();
+                    tx.send(LinksB(links.clone())).unwrap();
                     links.clear();
                 },
                 ParaL(p) => {
-                    tx.send(Links(links.clone())).unwrap();
+                    tx.send(LinksB(links.clone())).unwrap();
                     links.clear();
-                    tx.send(Para(p)).unwrap();
+                    tx.send(ParaB(p)).unwrap();
                 },
                 HeadingL(lvl, s) => {
-                    tx.send(Links(links.clone())).unwrap();
+                    tx.send(LinksB(links.clone())).unwrap();
                     links.clear();
-                    tx.send(Heading(lvl, s)).unwrap();
+                    tx.send(HeadingB(lvl, s)).unwrap();
                 },
                 PreformattedL(p) => {
-                    tx.send(Links(links.clone())).unwrap();
+                    tx.send(LinksB(links.clone())).unwrap();
                     links.clear();
-                    tx.send(Preformatted(p)).unwrap();
+                    tx.send(PreformattedB(p)).unwrap();
                 },
                 LinkL(url, tag) => {
                     links.push((url, tag));
@@ -257,7 +257,7 @@ fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
         }
 
         if !links.is_empty() {
-            tx.send(Links(links)).unwrap();
+            tx.send(LinksB(links)).unwrap();
         }
     });
 }
