@@ -244,6 +244,12 @@ fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
 
         for line in rx {
             match line {
+                MalformedL(m) => {
+                    panic!("malformed line: {:?}", m);
+                },
+                LinkL(link) => {
+                    links.push(link);
+                },
                 BlankL => {
                     tx.send(LinksB(links.clone())).unwrap();
                     links.clear();
@@ -262,12 +268,6 @@ fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
                     tx.send(LinksB(links.clone())).unwrap();
                     links.clear();
                     tx.send(PreformattedB(p)).unwrap();
-                },
-                LinkL(link) => {
-                    links.push(link);
-                },
-                MalformedL(m) => {
-                    panic!("malformed line: {:?}", m);
                 }
             }
         }
