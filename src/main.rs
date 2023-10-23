@@ -159,7 +159,9 @@ fn link_of_line(line: String) -> Line {
     match parts.as_slice() {
         [ "=>", "" ] => MalformedL(Malformed::MLink),
         [ "=>", url ] => LinkL(Link(url.to_string(), None)),
-        [ "=>", url, tag ] => LinkL(Link(url.to_string(), Some(tag.to_string()))),
+        [ "=>", url, tag ] => LinkL(
+            Link(url.to_string(), Some(tag.to_string()))
+        ),
         _ => MalformedL(Malformed::MLink)
     }
 }
