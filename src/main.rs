@@ -60,8 +60,9 @@ enum Block {
     HeadingB(Heading)
 }
 
-struct NumberedString(String, usize);
-struct NumberedLine(Line, usize);
+// wrappers for including line numbers
+struct NumString(String, usize);
+struct NumLine(Line, usize);
 
 impl From<String> for Line {
     // corresponds to OCaml function 'line_of_string : string -> line'
