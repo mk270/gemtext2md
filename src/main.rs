@@ -190,12 +190,12 @@ Everything below this point is a five-stage pipeline.
 
 */
 
-fn read_lines(tx: Sender<NumberedString>) {
+fn read_lines(tx: Sender<NumString>) {
     thread::spawn(move || {
         let stdin = io::stdin();
         for (lineno, line) in stdin.lock().lines().enumerate() {
             match line {
-                Ok(l) => tx.send(NumberedString(l, lineno)).unwrap(),
+                Ok(l) => tx.send(NumString(l, lineno)).unwrap(),
                 Err(e) => panic!("couldn't read line {}, {}", lineno, e)
             }
         }
@@ -204,8 +204,8 @@ fn read_lines(tx: Sender<NumberedString>) {
 
 // annotate lines with whether they occur within preformatted blocks
 // discard the lines beginning with "```"
-fn gather_preformatted(rx: Receiver<NumberedString>,
-                       tx: Sender<(bool, NumberedString)>) {
+fn gather_preformatted(rx: Receiver<NumString>,
+                       tx: Sender<(bool, NumString)>) {
     thread::spawn(move || {
         let mut pref = false;
 
@@ -218,13 +218,14 @@ fn gather_preformatted(rx: Receiver<NumberedString>,
     });
 }
 
-fn decode_lines(rx: Receiver<(bool, NumberedString)>,
-                tx: Sender<NumberedLine>) {
+fn decode_lines(rx: Receiver<(bool, NumString)>,
+                tx: Sender<NumLine>) {
     thread::spawn(move || {
+        use Line::PreformattedL;
         let mut pref_acc: Vec<String> = vec![];
 
         for (pref, ns) in rx {
-            let NumberedString(s, lineno) = ns;
+            let NumString(s, lineno) = ns;
             match (pref_acc.as_slice(), pref, s) {
                 // in a preformatted block
                 (_, true, l) => {
@@ -234,25 +235,25 @@ fn decode_lines(rx: Receiver<(bool, NumberedString)>,
                 // outside preformatted block
                 ([], false, l) => { // usual case
                     pref_acc.clear();
-                    tx.send(NumberedLine(Line::from(l), lineno)).unwrap();
+                    tx.send(NumLine(Line::from(l), lineno)).unwrap();
                 },
                 (pls, false, l) => { // first line after a preformatted block
-                    tx.send(NumberedLine(Line::PreformattedL(pls.to_vec()),
-                                         lineno)).unwrap();
+                    tx.send(NumLine(PreformattedL(pls.to_vec()), lineno))
+                        .unwrap();
                     pref_acc.clear();
-                    tx.send(NumberedLine(Line::from(l), lineno)).unwrap();
+                    tx.send(NumLine(Line::from(l), lineno)).unwrap();
                 }
             }
         }
 
         if !pref_acc.is_empty() {
-            tx.send(NumberedLine(Line::PreformattedL(pref_acc), 0)).unwrap();
+            tx.send(NumLine(PreformattedL(pref_acc), 0)).unwrap();
         }
     });
 }
 
 // aggregate Lines into Blocks
-fn blocks_of_lines(rx: Receiver<NumberedLine>,
+fn blocks_of_lines(rx: Receiver<NumLine>,
                    tx: Sender<Block>) {
     thread::spawn(move || {
         use Block::*;
@@ -260,7 +261,7 @@ fn blocks_of_lines(rx: Receiver<NumberedLine>,
 
         let mut links: Vec<Link> = vec![];
 
-        for NumberedLine(line, lineno) in rx {
+        for NumLine(line, lineno) in rx {
             let (flush_links, payload) = match line {
                 MalformedL(m)    => panic!("error: {:?} at line {}", m, lineno),
                 LinkL(link)      => { links.push(link); (false, None) },
