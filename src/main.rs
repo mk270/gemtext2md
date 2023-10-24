@@ -60,6 +60,9 @@ enum Block {
     HeadingB(Heading)
 }
 
+struct NumberedString(String, usize);
+struct NumberedLine(Line, usize);
+
 impl From<String> for Line {
     // corresponds to OCaml function 'line_of_string : string -> line'
     fn from(s: String) -> Self {
@@ -186,12 +189,12 @@ Everything below this point is a five-stage pipeline.
 
 */
 
-fn read_lines(tx: Sender<String>) {
+fn read_lines(tx: Sender<NumberedString>) {
     thread::spawn(move || {
         let stdin = io::stdin();
         for (lineno, line) in stdin.lock().lines().enumerate() {
             match line {
-                Ok(l) => tx.send(l).unwrap(),
+                Ok(l) => tx.send(NumberedString(l, lineno)).unwrap(),
                 Err(e) => panic!("couldn't read line {}, {}", lineno, e)
             }
         }
@@ -200,12 +203,13 @@ fn read_lines(tx: Sender<String>) {
 
 // annotate lines with whether they occur within preformatted blocks
 // discard the lines beginning with "```"
-fn gather_preformatted(rx: Receiver<String>, tx: Sender<(bool, String)>) {
+fn gather_preformatted(rx: Receiver<NumberedString>,
+                       tx: Sender<(bool, NumberedString)>) {
     thread::spawn(move || {
         let mut pref = false;
 
         for i in rx {
-            match i.get(..3) {
+            match i.0.get(..3) {
                 Some("```") => pref = !pref,
                 _ => tx.send((pref, i)).unwrap()
             }
@@ -213,50 +217,51 @@ fn gather_preformatted(rx: Receiver<String>, tx: Sender<(bool, String)>) {
     });
 }
 
-fn decode_lines(rx: Receiver<(bool, String)>, tx: Sender<Line>) {
+fn decode_lines(rx: Receiver<(bool, NumberedString)>,
+                tx: Sender<NumberedLine>) {
     thread::spawn(move || {
         let mut pref_acc: Vec<String> = vec![];
 
-        for (pref, line) in rx {
-            match (pref_acc.as_slice(), pref, line) {
+        for (pref, ns) in rx {
+            let NumberedString(s, lineno) = ns;
+            match (pref_acc.as_slice(), pref, s) {
                 // in a preformatted block
-                ([], true, l) => { // first line of a preformatted block
-                    pref_acc.push(l);
-                },
-                (_pls, true, l) => { // first line of a preformatted block
+                (_, true, l) => {
                     pref_acc.push(l);
                 },
 
                 // outside preformatted block
                 ([], false, l) => { // usual case
                     pref_acc.clear();
-                    tx.send(Line::from(l)).unwrap();
+                    tx.send(NumberedLine(Line::from(l), lineno)).unwrap();
                 },
                 (pls, false, l) => { // first line after a preformatted block
-                    tx.send(Line::PreformattedL(pls.to_vec())).unwrap();
+                    tx.send(NumberedLine(Line::PreformattedL(pls.to_vec()),
+                                         lineno)).unwrap();
                     pref_acc.clear();
-                    tx.send(Line::from(l)).unwrap();
+                    tx.send(NumberedLine(Line::from(l), lineno)).unwrap();
                 }
             }
         }
 
         if !pref_acc.is_empty() {
-            tx.send(Line::PreformattedL(pref_acc)).unwrap();
+            tx.send(NumberedLine(Line::PreformattedL(pref_acc), 0)).unwrap();
         }
     });
 }
 
 // aggregate Lines into Blocks
-fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
+fn blocks_of_lines(rx: Receiver<NumberedLine>,
+                   tx: Sender<Block>) {
     thread::spawn(move || {
         use Block::*;
         use Line::*;
 
         let mut links: Vec<Link> = vec![];
 
-        for line in rx {
+        for NumberedLine(line, lineno) in rx {
             let (flush_links, payload) = match line {
-                MalformedL(m)    => panic!("malformed line: {:?}", m),
+                MalformedL(m)    => panic!("error: {:?} at line {}", m, lineno),
                 LinkL(link)      => { links.push(link); (false, None) },
                 BlankL           => (true, None),
                 ParaL(p)         => (true, Some(ParaB(p))),
