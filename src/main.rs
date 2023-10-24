@@ -216,7 +216,6 @@ fn gather_preformatted(rx: Receiver<String>, tx: Sender<(bool, String)>) {
 fn decode_lines(rx: Receiver<(bool, String)>, tx: Sender<Line>) {
     thread::spawn(move || {
         let mut pref_acc: Vec<String> = vec![];
-        let mut _acc: Vec<Line> = vec![];
 
         for (pref, line) in rx {
             match (pref_acc.as_slice(), pref, line) {
