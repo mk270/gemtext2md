@@ -235,6 +235,7 @@ fn decode_lines(rx: Receiver<(bool, String)>, tx: Sender<Line>) {
     });
 }
 
+// aggregate Lines into Blocks
 fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
     thread::spawn(move || {
         use Block::*;
@@ -243,32 +244,22 @@ fn blocks_of_lines(rx: Receiver<Line>, tx: Sender<Block>) {
         let mut links: Vec<Link> = vec![];
 
         for line in rx {
-            match line {
-                MalformedL(m) => {
-                    panic!("malformed line: {:?}", m);
-                },
-                LinkL(link) => {
-                    links.push(link);
-                },
-                BlankL => {
-                    tx.send(LinksB(links.clone())).unwrap();
-                    links.clear();
-                },
-                ParaL(p) => {
-                    tx.send(LinksB(links.clone())).unwrap();
-                    links.clear();
-                    tx.send(ParaB(p)).unwrap();
-                },
-                HeadingL(h) => {
-                    tx.send(LinksB(links.clone())).unwrap();
-                    links.clear();
-                    tx.send(HeadingB(h)).unwrap();
-                },
-                PreformattedL(p) => {
-                    tx.send(LinksB(links.clone())).unwrap();
-                    links.clear();
-                    tx.send(PreformattedB(p)).unwrap();
-                }
+            let (flush_links, payload) = match line {
+                MalformedL(m)    => panic!("malformed line: {:?}", m),
+                LinkL(link)      => { links.push(link); (false, None) },
+                BlankL           => (true, None),
+                ParaL(p)         => (true, Some(ParaB(p))),
+                HeadingL(h)      => (true, Some(HeadingB(h))),
+                PreformattedL(p) => (true, Some(PreformattedB(p)))
+            };
+
+            if flush_links {
+                tx.send(LinksB(links.clone())).unwrap();
+                links.clear();
+            }
+
+            if let Some(p) = payload {
+                tx.send(p).unwrap();
             }
         }
 
