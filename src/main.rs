@@ -174,6 +174,18 @@ fn make_heading(s: String, level: HeadingLevel, offset: usize) -> Line {
     Line::HeadingL(Heading(level, after_hashes.to_string()))
 }
 
+/*
+
+Everything below this point is a five-stage pipeline.
+
+  read_lines:          get stdin input stream line by line as strings
+  gather_preformatted: tag the strings if they're in a preformatted block
+  decode_lines:        turn the strings into Lines
+  blocks_of_lines:     turn the Lines into Blocks
+  consume_blocks:      print the Blocks to stdout
+
+*/
+
 fn read_lines(tx: Sender<String>) {
     thread::spawn(move || {
         let stdin = io::stdin();
