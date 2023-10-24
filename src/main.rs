@@ -218,6 +218,7 @@ fn gather_preformatted(rx: Receiver<NumString>,
     });
 }
 
+// convert the incoming strings to Lines
 fn decode_lines(rx: Receiver<(bool, NumString)>,
                 tx: Sender<NumLine>) {
     thread::spawn(move || {
@@ -226,23 +227,15 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
 
         for (pref, ns) in rx {
             let NumString(s, lineno) = ns;
-            match (pref_acc.as_slice(), pref, s) {
-                // in a preformatted block
-                (_, true, l) => {
-                    pref_acc.push(l);
-                },
-
-                // outside preformatted block
-                ([], false, l) => { // usual case
+            if pref {
+                pref_acc.push(s);
+            } else {
+                if !pref_acc.is_empty() {
+                    tx.send(NumLine(PreformattedL(pref_acc.clone()), lineno)).
+                        unwrap();
                     pref_acc.clear();
-                    tx.send(NumLine(Line::from(l), lineno)).unwrap();
-                },
-                (pls, false, l) => { // first line after a preformatted block
-                    tx.send(NumLine(PreformattedL(pls.to_vec()), lineno))
-                        .unwrap();
-                    pref_acc.clear();
-                    tx.send(NumLine(Line::from(l), lineno)).unwrap();
                 }
+                tx.send(NumLine(Line::from(s), lineno)).unwrap();
             }
         }
 
