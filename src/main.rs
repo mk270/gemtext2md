@@ -184,10 +184,13 @@ Everything below this point is a five-stage pipeline.
 fn read_lines(tx: Sender<NumString>) {
     thread::spawn(move || {
         let stdin = io::stdin();
-        for (lineno, line) in stdin.lock().lines().enumerate() {
+
+        for (lineno_0, line) in stdin.lock().lines().enumerate() {
+            let lineno = lineno_0 + 1; // index from 1, not 0
+
             match line {
                 Ok(l) => tx.send(NumString(l, lineno)).unwrap(),
-                Err(e) => panic!("couldn't read line {}, {}", lineno + 1, e)
+                Err(e) => panic!("couldn't read line {}, {}", lineno, e)
             }
         }
     });
