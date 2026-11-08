@@ -209,7 +209,7 @@ fn read_lines(tx: Sender<NumString>) {
         for (lineno, line) in stdin.lock().lines().enumerate() {
             match line {
                 Ok(l) => tx.send(NumString(l, lineno)).unwrap(),
-                Err(e) => panic!("couldn't read line {}, {}", lineno, e)
+                Err(e) => panic!("couldn't read line {}, {}", lineno + 1, e)
             }
         }
     });
