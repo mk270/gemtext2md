@@ -43,7 +43,7 @@ enum Malformed {
 #[derive(Debug)]
 struct Heading(HeadingLevel, String);
 
-#[derive(Debug,Clone)]
+#[derive(Debug)]
 struct Link(String, Option<String>);
 
 #[derive(Debug)]
