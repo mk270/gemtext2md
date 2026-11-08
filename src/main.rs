@@ -181,7 +181,7 @@ Everything below this point is a five-stage pipeline.
 
 */
 
-macro_rules! guard_send {
+macro_rules! send_or_stop {
     ($sender:ident, $payload:expr) => {
         if $sender.send($payload).is_err() { return; }
     }
@@ -195,7 +195,7 @@ fn read_lines(tx: Sender<NumString>) {
             let lineno = lineno_0 + 1; // index from 1, not 0
 
             match line {
-                Ok(l) => guard_send!(tx, NumString(l, lineno)),
+                Ok(l) => send_or_stop!(tx, NumString(l, lineno)),
                 Err(e) => panic!("couldn't read line {}, {}", lineno, e)
             }
         }
@@ -212,7 +212,7 @@ fn gather_preformatted(rx: Receiver<NumString>,
         for i in rx {
             match i.0.get(..3) {
                 Some("```") => pref = !pref,
-                _ => guard_send!(tx, (pref, i))
+                _ => send_or_stop!(tx, (pref, i))
             }
         }
     });
@@ -231,15 +231,15 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
                 pref_acc.push(s);
             } else {
                 if !pref_acc.is_empty() {
-                    guard_send!(tx, NumLine(PreformattedL(take(&mut pref_acc)),
+                    send_or_stop!(tx, NumLine(PreformattedL(take(&mut pref_acc)),
                                     lineno));
                 }
-                guard_send!(tx, NumLine(Line::from(s), lineno))
+                send_or_stop!(tx, NumLine(Line::from(s), lineno))
             }
         }
 
         if !pref_acc.is_empty() {
-            guard_send!(tx, NumLine(PreformattedL(pref_acc), 0));
+            send_or_stop!(tx, NumLine(PreformattedL(pref_acc), 0));
         }
     });
 }
@@ -264,16 +264,16 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
             };
 
             if flush_links {
-                guard_send!(tx, LinksB(take(&mut links)));
+                send_or_stop!(tx, LinksB(take(&mut links)));
             }
 
             if let Some(p) = payload {
-                guard_send!(tx, p);
+                send_or_stop!(tx, p);
             }
         }
 
         if !links.is_empty() {
-            guard_send!(tx, LinksB(links));
+            send_or_stop!(tx, LinksB(links));
         }
     });
 }
