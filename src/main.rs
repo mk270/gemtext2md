@@ -63,7 +63,7 @@ enum Block {
     HeadingB(Heading)
 }
 
-// wrappers for including line numbers
+// wrapper for including line numbers
 struct NumString(String, usize);
 
 impl TryFrom<&str> for Line {
@@ -231,9 +231,10 @@ fn gather_preformatted(rx: Receiver<NumString>,
         let mut pref = false;
 
         for i in rx {
-            match i.0.get(..3) {
-                Some("```") => pref = !pref,
-                _ => send_or_stop!(tx, (pref, i))
+            if i.0.starts_with("```") {
+                pref = !pref;
+            } else {
+                send_or_stop!(tx, (pref, i));
             }
         }
 
