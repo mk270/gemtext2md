@@ -114,7 +114,7 @@ impl fmt::Display for Link {
             None => url.clone()
         };
 
-        write!(f, "* [{}]({})\n", caption, url)
+        writeln!(f, "* [{}]({})", caption, url)
     }
 }
 
