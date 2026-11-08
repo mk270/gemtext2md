@@ -22,6 +22,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use std::thread;
 use std::io::{self, BufRead, Write};
 use std::fmt;
+use std::mem::take;
 
 #[derive(Debug)]
 enum HeadingLevel {
@@ -231,9 +232,9 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
                 pref_acc.push(s);
             } else {
                 if !pref_acc.is_empty() {
-                    tx.send(NumLine(PreformattedL(pref_acc.clone()), lineno)).
+                    tx.send(NumLine(PreformattedL(take(&mut pref_acc)),
+                                    lineno)).
                         unwrap();
-                    pref_acc.clear();
                 }
                 tx.send(NumLine(Line::from(s), lineno)).unwrap();
             }
@@ -265,8 +266,7 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
             };
 
             if flush_links {
-                tx.send(LinksB(links.clone())).unwrap();
-                links.clear();
+                tx.send(LinksB(take(&mut links))).unwrap();
             }
 
             if let Some(p) = payload {
