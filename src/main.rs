@@ -17,8 +17,7 @@
    the OCaml original into unidiomatic Rust, right down to the function
    names. */
 
-use std::sync::mpsc;
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
 use std::io::{self, BufRead, Write};
 use std::fmt;
