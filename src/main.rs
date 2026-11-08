@@ -52,8 +52,7 @@ enum Line {
     ParaL(String),
     LinkL(Link),
     HeadingL(Heading),
-    BlankL,
-    MalformedL(Malformed)
+    BlankL
 }
 
 #[derive(Debug)]
@@ -68,10 +67,12 @@ enum Block {
 struct NumString(String, usize);
 struct NumLine(Line, usize);
 
-impl From<String> for Line {
+impl TryFrom<&str> for Line {
+    type Error = Malformed;
+
     // corresponds to OCaml function 'line_of_string : string -> line'
     // modulo parsing quirks that violated the spec
-    fn from(s: String) -> Self {
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
         use Line::*;
         use Malformed::*;
         use HeadingLevel::*;
@@ -80,12 +81,12 @@ impl From<String> for Line {
         if let Some(rest) = s.strip_prefix("=>") {
             let rest = rest.trim();
             return match rest.split_once(char::is_whitespace) {
-                None if rest.is_empty() => MalformedL(MLink),
-                None => LinkL(Link(rest.to_string(), None)),
-                Some((url, label)) => LinkL(Link(
+                None if rest.is_empty() => Err(MLink),
+                None => Ok(LinkL(Link(rest.to_string(), None))),
+                Some((url, label)) => Ok(LinkL(Link(
                     url.to_string(),
                     Some(label.trim_start().to_string())
-                )),
+                ))),
             };
         }
 
@@ -103,15 +104,15 @@ impl From<String> for Line {
         if let Some((level, text)) = heading {
             let text = text.trim();
             return if text.is_empty() {
-                MalformedL(MHeading)
+                Err(MHeading)
             } else {
-                HeadingL(Heading(level, text.to_string()))
+                Ok(HeadingL(Heading(level, text.to_string())))
             };
         }
 
         // paragraphs / blanks
         let text = s.trim();
-        if text.is_empty() { BlankL } else { ParaL(text.to_string()) }
+        Ok(if text.is_empty() { BlankL } else { ParaL(text.to_string()) })
     }
 }
 
@@ -246,7 +247,10 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
                                   NumLine(PreformattedL(take(&mut pref_acc)),
                                           lineno));
                 }
-                send_or_stop!(tx, NumLine(Line::from(s), lineno));
+
+                let line = Line::try_from(s.as_str())
+                    .map_err(|m| format!("{:?} at line {}", m, lineno))?;
+                send_or_stop!(tx, NumLine(line, lineno));
             }
         }
 
@@ -271,8 +275,6 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
 
         for NumLine(line, lineno) in rx {
             let (flush_links, payload) = match line {
-                MalformedL(m)    => return Err(format!("{:?} at line {}",
-                                                       m, lineno)),
                 LinkL(link)      => { links.push(link); (false, None) },
                 BlankL           => (true, None),
                 ParaL(p)         => (true, Some(ParaB(p))),
