@@ -109,12 +109,8 @@ impl fmt::Display for Heading {
 
 impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Link(url, tag) = self.clone();
-        let caption = match tag {
-            Some(c) => c,
-            None => url.clone()
-        };
-
+        let Link(url, tag) = self;
+        let caption = tag.as_deref().unwrap_or(url);
         writeln!(f, "* [{}]({})", caption, url)
     }
 }
