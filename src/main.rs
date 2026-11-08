@@ -69,6 +69,7 @@ struct NumLine(Line, usize);
 
 impl From<String> for Line {
     // corresponds to OCaml function 'line_of_string : string -> line'
+    // modulo parsing quirks that violated the spec
     fn from(s: String) -> Self {
         use Line::*;
         use Malformed::*;
