@@ -46,6 +46,7 @@ enum Line {
     ParaL(String),
     LinkL(Link),
     ListItemL(String),
+    QuoteL(String),
     HeadingL(Heading),
     BlankL
 }
@@ -56,6 +57,7 @@ enum Block {
     ParaB(String),
     LinksB(Vec<Link>),
     ListB(Vec<String>),
+    QuoteB(Vec<String>),
     HeadingB(Heading)
 }
 
@@ -108,6 +110,11 @@ impl TryFrom<&str> for Line {
         // lists
         if let Some(rest) = s.strip_prefix("* ") {
             return Ok(ListItemL(rest.trim().to_string()));
+        }
+
+        // quotes: ">" [whitespace] text
+        if let Some(rest) = s.strip_prefix('>') {
+            return Ok(QuoteL(rest.trim().to_string()));
         }
 
         // paragraphs / blanks
@@ -174,6 +181,16 @@ impl fmt::Display for Block {
             ListB(items)        => {
                 for item in items {
                     writeln!(f, "- {}", item)?;
+                }
+                writeln!(f)
+            },
+
+            QuoteB(paras)       => {
+                for (i, para) in paras.iter().enumerate() {
+                    if i > 0 {
+                        writeln!(f, ">")?;
+                    }
+                    writeln!(f, "> {}", para)?;
                 }
                 writeln!(f)
             }
@@ -309,26 +326,32 @@ fn blocks_of_lines(rx: Receiver<Line>,
         use Block::*;
         use Line::*;
 
-        let mut links: Vec<Link> = vec![];
-        let mut items: Vec<String> = vec![];
+        let mut links:  Vec<Link>   = vec![];
+        let mut items:  Vec<String> = vec![];
+        let mut quotes: Vec<String> = vec![];
 
         for line in rx {
-            let (flush_links, flush_items, payload) = match line {
-                LinkL(link)      => { links.push(link); (false, true, None) },
-                ListItemL(item)  => { items.push(item); (true, false, None) },
-                BlankL           => (true, true, None),
-                ParaL(p)         => (true, true, Some(ParaB(p))),
-                HeadingL(h)      => (true, true, Some(HeadingB(h))),
-                PreformattedL(a, p)
-                                 => (true, true, Some(PreformattedB(a, p)))
+            // which accumulators does this line end? (links, items, quotes)
+            let (fl, fi, fq, payload) = match line {
+                LinkL(link)  => { links.push(link);   (false, true,  true,  None) },
+                ListItemL(i) => { items.push(i);      (true,  false, true,  None) },
+                QuoteL(q)    => { quotes.push(q);     (true,  true,  false, None) },
+                BlankL       =>                       (true,  true,  true,  None),
+                ParaL(p)     =>                       (true,  true,  true,  Some(ParaB(p))),
+                HeadingL(h)  =>                       (true,  true,  true,  Some(HeadingB(h))),
+                PreformattedL(a, p) =>                (true,  true,  true,  Some(PreformattedB(a, p)))
             };
 
-            if flush_links && !links.is_empty() {
+            if fl && !links.is_empty() {
                 send_or_stop!(tx, LinksB(take(&mut links)));
             }
 
-            if flush_items && !items.is_empty() {
+            if fi && !items.is_empty() {
                 send_or_stop!(tx, ListB(take(&mut items)));
+            }
+
+            if fq && !quotes.is_empty() {
+                send_or_stop!(tx, QuoteB(take(&mut quotes)));
             }
 
             if let Some(p) = payload {
@@ -342,6 +365,10 @@ fn blocks_of_lines(rx: Receiver<Line>,
 
         if !items.is_empty() {
             send_or_stop!(tx, ListB(items));
+        }
+
+        if !quotes.is_empty() {
+            send_or_stop!(tx, QuoteB(quotes));
         }
 
         Ok(())
