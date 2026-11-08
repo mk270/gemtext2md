@@ -201,7 +201,8 @@ fn read_lines(tx: Sender<NumString>)
 
             match line {
                 Ok(l) => send_or_stop!(tx, NumString(l, lineno)),
-                Err(e) => panic!("couldn't read line {}, {}", lineno, e)
+                Err(e) => return Err(format!("couldn't read line {}, {}",
+                                             lineno, e))
             }
         }
 
