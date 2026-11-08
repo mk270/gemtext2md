@@ -26,6 +26,8 @@ use std::mem::take;
 use std::error::Error;
 use std::process::ExitCode;
 
+type StageResult = Result<(), String>;
+
 #[derive(Debug)]
 enum HeadingLevel {
     H1,
@@ -184,12 +186,12 @@ Everything below this point is a five-stage pipeline.
 
 macro_rules! send_or_stop {
     ($sender:ident, $payload:expr) => {
-        if $sender.send($payload).is_err() { return; }
+        if $sender.send($payload).is_err() { return Ok(()); }
     }
 }
 
 fn read_lines(tx: Sender<NumString>)
-              -> thread::JoinHandle<()>
+              -> thread::JoinHandle<StageResult>
 {
     thread::spawn(move || {
         let stdin = io::stdin();
@@ -202,6 +204,8 @@ fn read_lines(tx: Sender<NumString>)
                 Err(e) => panic!("couldn't read line {}, {}", lineno, e)
             }
         }
+
+        Ok(())
     })
 }
 
@@ -209,7 +213,7 @@ fn read_lines(tx: Sender<NumString>)
 // discard the lines beginning with "```"
 fn gather_preformatted(rx: Receiver<NumString>,
                        tx: Sender<(bool, NumString)>)
-                       -> thread::JoinHandle<()>
+                       -> thread::JoinHandle<StageResult>
 {
     thread::spawn(move || {
         let mut pref = false;
@@ -220,13 +224,15 @@ fn gather_preformatted(rx: Receiver<NumString>,
                 _ => send_or_stop!(tx, (pref, i))
             }
         }
+
+        Ok(())
     })
 }
 
 // convert the incoming strings to Lines
 fn decode_lines(rx: Receiver<(bool, NumString)>,
                 tx: Sender<NumLine>)
-                -> thread::JoinHandle<()>
+                -> thread::JoinHandle<StageResult>
 {
     thread::spawn(move || {
         use Line::PreformattedL;
@@ -249,13 +255,15 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
         if !pref_acc.is_empty() {
             send_or_stop!(tx, NumLine(PreformattedL(pref_acc), 0));
         }
+
+        Ok(())
     })
 }
 
 // aggregate Lines into Blocks
 fn blocks_of_lines(rx: Receiver<NumLine>,
                    tx: Sender<Block>)
-                   -> thread::JoinHandle<()>
+                   -> thread::JoinHandle<StageResult>
 {
     thread::spawn(move || {
         use Block::*;
@@ -265,7 +273,8 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
 
         for NumLine(line, lineno) in rx {
             let (flush_links, payload) = match line {
-                MalformedL(m)    => panic!("error: {:?} at line {}", m, lineno),
+                MalformedL(m)    => return Err(format!("{:?} at line {}",
+                                                       m, lineno)),
                 LinkL(link)      => { links.push(link); (false, None) },
                 BlankL           => (true, None),
                 ParaL(p)         => (true, Some(ParaB(p))),
@@ -285,6 +294,8 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
         if !links.is_empty() {
             send_or_stop!(tx, LinksB(links));
         }
+
+        Ok(())
     })
 }
 
@@ -319,9 +330,22 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let result = consume_blocks(rxlast);
 
+    /* Caveat: if consume_blocks stopped early because of a broken pipe
+       (e.g. output piped into `head`), the stages before it only notice
+       when their next send fails. For read_lines, that next send happens
+       only after it has read another line from stdin. If whatever feeds
+       stdin has stopped writing but not closed it (an interactive
+       terminal, say), joining h1 will block until another line or EOF
+       arrives. Input from a file or a pipe that keeps writing is fine.
+       If this ever matters, skip the joins after a broken pipe: there is
+       no error left to collect at that point anyway. */
+
     for h in [handle1, handle2, handle3, handle4] {
-        if h.join().is_err() {
-            return Err("some pipeline stage failed".into());
+        match h.join() {
+            Ok(Ok(())) => {},
+            Ok(Err(e)) => return Err(e.into()),
+            Err(_)     => return Err("internal error: a thread panicked"
+                                     .into())
         }
     }
 
