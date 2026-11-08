@@ -299,10 +299,18 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
     })
 }
 
-fn consume_blocks(rx: Receiver<Block>) -> Result<(), Box<dyn Error>>{
+enum Outcome { Complete, ReaderGone }
+
+fn consume_blocks(rx: Receiver<Block>) -> Result<Outcome, Box<dyn Error>>{
     match write_blocks(rx) {
-        Err(e) if e.kind() == io::ErrorKind::BrokenPipe => Ok(()),
-        r                                               => Ok(r?)
+        Ok(())
+            => Ok(Outcome::Complete),
+
+        Err(e) if e.kind() == io::ErrorKind::BrokenPipe
+            => Ok(Outcome::ReaderGone),
+
+        Err(e)
+            => Err(e.into())
     }
 }
 
@@ -328,19 +336,14 @@ fn run() -> Result<(), Box<dyn Error>> {
     let (tx4, rxlast) = mpsc::channel();
     let handle4       = blocks_of_lines(rx3, tx4);
 
-    let result = consume_blocks(rxlast);
+    if let Outcome::ReaderGone = consume_blocks(rxlast)? {
+        return Ok(());
+    }
 
-    /* Caveat: if consume_blocks stopped early because of a broken pipe
-       (e.g. output piped into `head`), the stages before it only notice
-       when their next send fails. For read_lines, that next send happens
-       only after it has read another line from stdin. If whatever feeds
-       stdin has stopped writing but not closed it (an interactive
-       terminal, say), joining h1 will block until another line or EOF
-       arrives. Input from a file or a pipe that keeps writing is fine.
-       If this ever matters, skip the joins after a broken pipe: there is
-       no error left to collect at that point anyway. */
-
-    for h in [handle1, handle2, handle3, handle4] {
+    /* Join from the end of the pipeline backwards and stop at the first
+       error: stages after a failed one finish normally, but stages before
+       it may still be blocked reading. */
+    for h in [handle4, handle3, handle2, handle1] {
         match h.join() {
             Ok(Ok(())) => {},
             Ok(Err(e)) => return Err(e.into()),
@@ -349,7 +352,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    result
+    Ok(())
 }
 
 fn main() -> ExitCode {
