@@ -8,14 +8,8 @@
 /* Usage: as a commandline filter. The program reads Gemtext on stdin and
    outputs Markdown, hopefully in CommonMark format. */
 
-/* The author is perfectly aware that this code is unidiomatic,
-   inefficient, inelegant, unprincipled, undocumented, depends on
-   loading the whole input stream into memory, makes your curtains
-   fade, etc, etc. It is simply not worth polishing it. */
-
 /* The code below is a fairly bloody-minded hand translation from
-   the OCaml original into unidiomatic Rust, right down to the function
-   names. */
+   the OCaml original into somewhat unidiomatic Rust. */
 
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
@@ -51,6 +45,7 @@ enum Line {
     PreformattedL(Vec<String>),
     ParaL(String),
     LinkL(Link),
+    ListItemL(String),
     HeadingL(Heading),
     BlankL
 }
@@ -60,6 +55,7 @@ enum Block {
     PreformattedB(Vec<String>),
     ParaB(String),
     LinksB(Vec<Link>),
+    ListB(Vec<String>),
     HeadingB(Heading)
 }
 
@@ -107,6 +103,11 @@ impl TryFrom<&str> for Line {
             } else {
                 Ok(HeadingL(Heading(level, text.to_string())))
             };
+        }
+
+        // lists
+        if let Some(rest) = s.strip_prefix("* ") {
+            return Ok(ListItemL(rest.trim().to_string()));
         }
 
         // paragraphs / blanks
@@ -166,6 +167,13 @@ impl fmt::Display for Block {
                 }
                 for l in ll {
                     write!(f, "{}", l)?;
+                }
+                writeln!(f)
+            },
+
+            ListB(items)        => {
+                for item in items {
+                    writeln!(f, "- {}", item)?;
                 }
                 writeln!(f)
             }
@@ -285,18 +293,24 @@ fn blocks_of_lines(rx: Receiver<Line>,
         use Line::*;
 
         let mut links: Vec<Link> = vec![];
+        let mut items: Vec<String> = vec![];
 
         for line in rx {
-            let (flush_links, payload) = match line {
-                LinkL(link)      => { links.push(link); (false, None) },
-                BlankL           => (true, None),
-                ParaL(p)         => (true, Some(ParaB(p))),
-                HeadingL(h)      => (true, Some(HeadingB(h))),
-                PreformattedL(p) => (true, Some(PreformattedB(p)))
+            let (flush_links, flush_items, payload) = match line {
+                LinkL(link)      => { links.push(link); (false, true, None) },
+                ListItemL(item)  => { items.push(item); (true, false, None) },
+                BlankL           => (true, true, None),
+                ParaL(p)         => (true, true, Some(ParaB(p))),
+                HeadingL(h)      => (true, true, Some(HeadingB(h))),
+                PreformattedL(p) => (true, true, Some(PreformattedB(p)))
             };
 
-            if flush_links {
+            if flush_links && !links.is_empty() {
                 send_or_stop!(tx, LinksB(take(&mut links)));
+            }
+
+            if flush_items && !items.is_empty() {
+                send_or_stop!(tx, ListB(take(&mut items)));
             }
 
             if let Some(p) = payload {
@@ -306,6 +320,10 @@ fn blocks_of_lines(rx: Receiver<Line>,
 
         if !links.is_empty() {
             send_or_stop!(tx, LinksB(links));
+        }
+
+        if !items.is_empty() {
+            send_or_stop!(tx, ListB(items));
         }
 
         Ok(())
