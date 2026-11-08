@@ -133,7 +133,7 @@ impl fmt::Display for Block {
     }
 }
 
-fn heading_chars(h: &HeadingLevel) -> String {
+fn heading_chars(h: &HeadingLevel) -> &'static str {
     use HeadingLevel::*;
 
     let s = match h {
@@ -142,7 +142,7 @@ fn heading_chars(h: &HeadingLevel) -> String {
         H3 => "###"
     };
 
-    s.to_string()
+    s
 }
 
 fn string_of_links(ll: Vec<Link>) -> String {
