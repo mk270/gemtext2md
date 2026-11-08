@@ -232,10 +232,11 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
                 pref_acc.push(s);
             } else {
                 if !pref_acc.is_empty() {
-                    send_or_stop!(tx, NumLine(PreformattedL(take(&mut pref_acc)),
-                                    lineno));
+                    send_or_stop!(tx,
+                                  NumLine(PreformattedL(take(&mut pref_acc)),
+                                          lineno));
                 }
-                send_or_stop!(tx, NumLine(Line::from(s), lineno))
+                send_or_stop!(tx, NumLine(Line::from(s), lineno));
             }
         }
 
