@@ -115,6 +115,20 @@ impl TryFrom<&str> for Line {
     }
 }
 
+impl fmt::Display for Malformed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Malformed::*;
+
+        let s = match self {
+            MLink    => "link line with no URL",
+            MHeading => "heading with no text"
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
+
 impl fmt::Display for Heading {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", heading_chars(&self.0), self.1)
@@ -247,7 +261,7 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
                 }
 
                 let line = Line::try_from(s.as_str())
-                    .map_err(|m| format!("{:?} at line {}", m, lineno))?;
+                    .map_err(|m| format!("line {}: {}", lineno, m))?;
                 send_or_stop!(tx, line);
             }
         }
