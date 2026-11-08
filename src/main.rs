@@ -162,13 +162,11 @@ impl fmt::Display for Block {
 fn heading_chars(h: &HeadingLevel) -> &'static str {
     use HeadingLevel::*;
 
-    let s = match h {
+    match h {
         H1 => "#",
         H2 => "##",
         H3 => "###"
-    };
-
-    s
+    }
 }
 
 /*
