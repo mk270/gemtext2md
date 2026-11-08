@@ -65,7 +65,6 @@ enum Block {
 
 // wrappers for including line numbers
 struct NumString(String, usize);
-struct NumLine(Line, usize);
 
 impl TryFrom<&str> for Line {
     type Error = Malformed;
@@ -230,7 +229,7 @@ fn gather_preformatted(rx: Receiver<NumString>,
 
 // convert the incoming strings to Lines
 fn decode_lines(rx: Receiver<(bool, NumString)>,
-                tx: Sender<NumLine>)
+                tx: Sender<Line>)
                 -> thread::JoinHandle<StageResult>
 {
     thread::spawn(move || {
@@ -244,18 +243,17 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
             } else {
                 if !pref_acc.is_empty() {
                     send_or_stop!(tx,
-                                  NumLine(PreformattedL(take(&mut pref_acc)),
-                                          lineno));
+                                  PreformattedL(take(&mut pref_acc)));
                 }
 
                 let line = Line::try_from(s.as_str())
                     .map_err(|m| format!("{:?} at line {}", m, lineno))?;
-                send_or_stop!(tx, NumLine(line, lineno));
+                send_or_stop!(tx, line);
             }
         }
 
         if !pref_acc.is_empty() {
-            send_or_stop!(tx, NumLine(PreformattedL(pref_acc), 0));
+            send_or_stop!(tx, PreformattedL(pref_acc));
         }
 
         Ok(())
@@ -263,7 +261,7 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
 }
 
 // aggregate Lines into Blocks
-fn blocks_of_lines(rx: Receiver<NumLine>,
+fn blocks_of_lines(rx: Receiver<Line>,
                    tx: Sender<Block>)
                    -> thread::JoinHandle<StageResult>
 {
@@ -273,7 +271,7 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
 
         let mut links: Vec<Link> = vec![];
 
-        for NumLine(line, lineno) in rx {
+        for line in rx {
             let (flush_links, payload) = match line {
                 LinkL(link)      => { links.push(link); (false, None) },
                 BlankL           => (true, None),
