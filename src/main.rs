@@ -280,7 +280,7 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
 fn consume_blocks(rx: Receiver<Block>) -> Result<(), Box<dyn Error>>{
     for i in rx {
         print!("{}", i);
-        io::stdout().flush().unwrap();
+        io::stdout().flush()?;
     }
 
     Ok(())
