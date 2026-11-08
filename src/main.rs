@@ -23,6 +23,7 @@ use std::thread;
 use std::io::{self, BufRead, Write};
 use std::fmt;
 use std::mem::take;
+use std::error::Error;
 
 #[derive(Debug)]
 enum HeadingLevel {
@@ -276,7 +277,7 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
     });
 }
 
-fn consume_blocks(rx: Receiver<Block>) -> Result<(), ()>{
+fn consume_blocks(rx: Receiver<Block>) -> Result<(), Box<dyn Error>>{
     for i in rx {
         print!("{}", i);
         io::stdout().flush().unwrap();
@@ -285,7 +286,7 @@ fn consume_blocks(rx: Receiver<Block>) -> Result<(), ()>{
     Ok(())
 }
 
-fn main() -> Result<(), ()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let (tx1, rx1) = mpsc::channel();
     read_lines(tx1);
 
