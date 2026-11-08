@@ -42,7 +42,7 @@ struct Link(String, Option<String>);
 
 #[derive(Debug)]
 enum Line {
-    PreformattedL(Vec<String>),
+    PreformattedL(Option<String>, Vec<String>),
     ParaL(String),
     LinkL(Link),
     ListItemL(String),
@@ -52,7 +52,7 @@ enum Line {
 
 #[derive(Debug)]
 enum Block {
-    PreformattedB(Vec<String>),
+    PreformattedB(Option<String>, Vec<String>),
     ParaB(String),
     LinksB(Vec<Link>),
     ListB(Vec<String>),
@@ -153,8 +153,8 @@ impl fmt::Display for Block {
 
             HeadingB(h)         => write!(f, "{}\n\n", h),
 
-            PreformattedB(prpr) => {
-                writeln!(f, "```")?;
+            PreformattedB(alt, prpr) => {
+                writeln!(f, "```{}", alt.as_deref().unwrap_or(""))?;
                 for line in prpr {
                     writeln!(f, "{}", line)?;
                 }
@@ -230,8 +230,8 @@ fn read_lines(tx: Sender<NumString>)
     })
 }
 
-// annotate lines with whether they occur within preformatted blocks
-// discard the lines beginning with "```"
+// annotate lines with whether they occur within preformatted blocks;
+// pass the opening fence on (it carries the alt text), drop the closing one
 fn gather_preformatted(rx: Receiver<NumString>,
                        tx: Sender<(bool, NumString)>)
                        -> thread::JoinHandle<StageResult>
@@ -242,6 +242,9 @@ fn gather_preformatted(rx: Receiver<NumString>,
         for i in rx {
             if i.0.starts_with("```") {
                 pref = !pref;
+                if pref {
+                    send_or_stop!(tx, (true, i));   // opening fence: keep
+                }
             } else {
                 send_or_stop!(tx, (pref, i));
             }
@@ -258,26 +261,39 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
 {
     thread::spawn(move || {
         use Line::PreformattedL;
-        let mut pref_acc: Vec<String> = vec![];
+
+        // the preformatted block being collected, if any: (alt text, lines)
+        let mut block: Option<(Option<String>, Vec<String>)> = None;
 
         for (pref, ns) in rx {
             let NumString(s, lineno) = ns;
-            if pref {
-                pref_acc.push(s);
-            } else {
-                if !pref_acc.is_empty() {
-                    send_or_stop!(tx,
-                                  PreformattedL(take(&mut pref_acc)));
-                }
 
-                let line = Line::try_from(s.as_str())
-                    .map_err(|m| format!("line {}: {}", lineno, m))?;
-                send_or_stop!(tx, line);
+            if pref {
+                if let Some(alt) = s.strip_prefix("```") {
+                    // opening fence: finish any block it directly follows
+                    if let Some((a, lines)) = block.take() {
+                        send_or_stop!(tx, PreformattedL(a, lines));
+                    }
+                    let alt = alt.trim();
+                    let alt = (!alt.is_empty()).then(|| alt.to_string());
+                    block = Some((alt, vec![]));
+                } else if let Some((_, lines)) = block.as_mut() {
+                    lines.push(s);
+                }
+                continue;
             }
+
+            if let Some((a, lines)) = block.take() {
+                send_or_stop!(tx, PreformattedL(a, lines));
+            }
+
+            let line = Line::try_from(s.as_str())
+                .map_err(|m| format!("line {}: {}", lineno, m))?;
+            send_or_stop!(tx, line);
         }
 
-        if !pref_acc.is_empty() {
-            send_or_stop!(tx, PreformattedL(pref_acc));
+        if let Some((a, lines)) = block {
+            send_or_stop!(tx, PreformattedL(a, lines));
         }
 
         Ok(())
@@ -303,7 +319,8 @@ fn blocks_of_lines(rx: Receiver<Line>,
                 BlankL           => (true, true, None),
                 ParaL(p)         => (true, true, Some(ParaB(p))),
                 HeadingL(h)      => (true, true, Some(HeadingB(h))),
-                PreformattedL(p) => (true, true, Some(PreformattedB(p)))
+                PreformattedL(a, p)
+                                 => (true, true, Some(PreformattedB(a, p)))
             };
 
             if flush_links && !links.is_empty() {
