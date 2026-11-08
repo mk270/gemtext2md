@@ -169,28 +169,6 @@ fn heading_chars(h: &HeadingLevel) -> &'static str {
     s
 }
 
-fn link_of_line(line: String) -> Line {
-    use Line::*;
-
-    let parts: Vec<&str> = line.splitn(3, " ").collect();
-    match parts.as_slice() {
-        [ "=>", "" ] => MalformedL(Malformed::MLink),
-        [ "=>", url ] => LinkL(Link(url.to_string(), None)),
-        [ "=>", url, tag ] => LinkL(
-            Link(url.to_string(), Some(tag.to_string()))
-        ),
-        _ => MalformedL(Malformed::MLink)
-    }
-}
-
-fn trim(s: String) -> String { s.trim().to_string() }
-
-fn make_heading(s: String, level: HeadingLevel, offset: usize) -> Line {
-    let trimmed = trim(s);
-    let after_hashes = &trimmed[offset..];
-    Line::HeadingL(Heading(level, after_hashes.to_string()))
-}
-
 /*
 
 Everything below this point is a five-stage pipeline.
