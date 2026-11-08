@@ -170,7 +170,7 @@ fn link_of_line(line: String) -> Line {
     }
 }
 
-fn trim(s: String) -> String { s.to_string().trim().to_string() }
+fn trim(s: String) -> String { s.trim().to_string() }
 
 fn make_heading(s: String, level: HeadingLevel, offset: usize) -> Line {
     let trimmed = trim(s);
