@@ -24,6 +24,7 @@ use std::io::{self, BufRead, Write};
 use std::fmt;
 use std::mem::take;
 use std::error::Error;
+use std::process::ExitCode;
 
 #[derive(Debug)]
 enum HeadingLevel {
@@ -286,7 +287,7 @@ fn consume_blocks(rx: Receiver<Block>) -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn run() -> Result<(), Box<dyn Error>> {
     let (tx1, rx1) = mpsc::channel();
     read_lines(tx1);
 
@@ -300,4 +301,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     blocks_of_lines(rx3, tx4);
 
     consume_blocks(rxlast)
+}
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("gemtext2md: {e}");
+            ExitCode::FAILURE
+        }
+    }
 }
