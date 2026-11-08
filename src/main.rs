@@ -181,6 +181,12 @@ Everything below this point is a five-stage pipeline.
 
 */
 
+macro_rules! guard_send {
+    ($sender:ident, $payload:expr) => {
+        if $sender.send($payload).is_err() { return; }
+    }
+}
+
 fn read_lines(tx: Sender<NumString>) {
     thread::spawn(move || {
         let stdin = io::stdin();
@@ -189,7 +195,7 @@ fn read_lines(tx: Sender<NumString>) {
             let lineno = lineno_0 + 1; // index from 1, not 0
 
             match line {
-                Ok(l) => tx.send(NumString(l, lineno)).unwrap(),
+                Ok(l) => guard_send!(tx, NumString(l, lineno)),
                 Err(e) => panic!("couldn't read line {}, {}", lineno, e)
             }
         }
@@ -206,7 +212,7 @@ fn gather_preformatted(rx: Receiver<NumString>,
         for i in rx {
             match i.0.get(..3) {
                 Some("```") => pref = !pref,
-                _ => tx.send((pref, i)).unwrap()
+                _ => guard_send!(tx, (pref, i))
             }
         }
     });
@@ -225,16 +231,15 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
                 pref_acc.push(s);
             } else {
                 if !pref_acc.is_empty() {
-                    tx.send(NumLine(PreformattedL(take(&mut pref_acc)),
-                                    lineno)).
-                        unwrap();
+                    guard_send!(tx, NumLine(PreformattedL(take(&mut pref_acc)),
+                                    lineno));
                 }
-                tx.send(NumLine(Line::from(s), lineno)).unwrap();
+                guard_send!(tx, NumLine(Line::from(s), lineno))
             }
         }
 
         if !pref_acc.is_empty() {
-            tx.send(NumLine(PreformattedL(pref_acc), 0)).unwrap();
+            guard_send!(tx, NumLine(PreformattedL(pref_acc), 0));
         }
     });
 }
@@ -259,27 +264,34 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
             };
 
             if flush_links {
-                tx.send(LinksB(take(&mut links))).unwrap();
+                guard_send!(tx, LinksB(take(&mut links)));
             }
 
             if let Some(p) = payload {
-                tx.send(p).unwrap();
+                guard_send!(tx, p);
             }
         }
 
         if !links.is_empty() {
-            tx.send(LinksB(links)).unwrap();
+            guard_send!(tx, LinksB(links));
         }
     });
 }
 
 fn consume_blocks(rx: Receiver<Block>) -> Result<(), Box<dyn Error>>{
-    for i in rx {
-        print!("{}", i);
-        io::stdout().flush()?;
+    match write_blocks(rx) {
+        Err(e) if e.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+        r                                               => Ok(r?)
     }
+}
 
-    Ok(())
+fn write_blocks(rx: Receiver<Block>) -> io::Result<()> {
+    let mut out = io::stdout().lock();
+
+    for b in rx {
+        write!(out, "{}", b)?;
+    }
+    out.flush()
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
