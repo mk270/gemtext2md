@@ -74,32 +74,42 @@ impl From<String> for Line {
         use Malformed::*;
         use HeadingLevel::*;
 
-        match s.chars().collect::<Vec<char>>()[..] {
-            // links
-            ['=', '>']               => MalformedL(MLink),
-            ['=', '>', ' ', ..]      => link_of_line(s),
-            ['=', '>', ..]           => MalformedL(MLink),
-
-            // headings
-            ['#', '#', '#']          => MalformedL(MHeading),
-            ['#', '#', '#', ' ']     => MalformedL(MHeading),
-            ['#', '#', '#', ' ', ..] => make_heading(s, H3, 4),
-            ['#', '#', '#', ..]      => make_heading(s, H3, 3),
-
-            ['#', '#', _]            => MalformedL(MHeading),
-            ['#', '#']               => MalformedL(MHeading),
-            ['#', '#', ' ', ..]      => make_heading(s, H2, 3),
-            ['#', '#', ..]           => MalformedL(MHeading),
-
-            ['#', ' ']               => MalformedL(MHeading),
-            ['#']                    => MalformedL(MHeading),
-            ['#', ' ', ..]           => make_heading(s, H1, 2),
-            ['#', ..]                => MalformedL(MHeading),
-
-            // paragraphs / blanks
-            []                       => BlankL,
-            _                        => ParaL(trim(s))
+        // links: "=>" [whitespace] URL [whitespace label]
+        if let Some(rest) = s.strip_prefix("=>") {
+            let rest = rest.trim();
+            return match rest.split_once(char::is_whitespace) {
+                None if rest.is_empty() => MalformedL(MLink),
+                None => LinkL(Link(rest.to_string(), None)),
+                Some((url, label)) => LinkL(Link(
+                    url.to_string(),
+                    Some(label.trim_start().to_string())
+                )),
+            };
         }
+
+        // headings: longest prefix first, whitespace after the hashes optional
+        let heading = if let Some(r) = s.strip_prefix("###") {
+            Some((H3, r))
+        } else if let Some(r) = s.strip_prefix("##") {
+            Some((H2, r))
+        } else if let Some(r) = s.strip_prefix('#') {
+            Some((H1, r))
+        } else {
+            None
+        };
+
+        if let Some((level, text)) = heading {
+            let text = text.trim();
+            return if text.is_empty() {
+                MalformedL(MHeading)
+            } else {
+                HeadingL(Heading(level, text.to_string()))
+            };
+        }
+
+        // paragraphs / blanks
+        let text = s.trim();
+        if text.is_empty() { BlankL } else { ParaL(text.to_string()) }
     }
 }
 
