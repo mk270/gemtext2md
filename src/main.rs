@@ -15,7 +15,6 @@ use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
 use std::io::{self, BufRead, Write};
 use std::fmt;
-use std::mem::take;
 use std::error::Error;
 use std::process::ExitCode;
 
@@ -317,19 +316,40 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
     })
 }
 
-// what one Line does in blocks_of_lines: which groups in progress it ends,
-// and the Block (if any) it produces itself
-struct Step {
-    flush_links:  bool,
-    flush_items:  bool,
-    flush_quotes: bool,
-    payload:      Option<Block>
-}
+impl Block {
+    // the Block a Line starts, if any; a blank line starts nothing
+    fn of_line(line: Line) -> Option<Block> {
+        use Block::*;
+        use Line::*;
 
-impl Step {
-    // ends every group in progress
-    fn ends_all(payload: Option<Block>) -> Step {
-        Step { flush_links: true, flush_items: true, flush_quotes: true, payload }
+        match line {
+            LinkL(l)            => Some(LinksB(vec![l])),
+            ListItemL(i)        => Some(ListB(vec![i])),
+            QuoteL(q)           => Some(QuoteB(vec![q])),
+            ParaL(p)            => Some(ParaB(p)),
+            HeadingL(h)         => Some(HeadingB(h)),
+            PreformattedL(a, p) => Some(PreformattedB(a, p)),
+            BlankL              => None
+        }
+    }
+
+    // blocks that consecutive lines of the same kind are added to
+    fn is_group(&self) -> bool {
+        use Block::*;
+        matches!(self, LinksB(_) | ListB(_) | QuoteB(_))
+    }
+
+    // add a line to this group if it belongs here; otherwise hand it back
+    fn absorb(&mut self, line: Line) -> Result<(), Line> {
+        use Block::*;
+        use Line::*;
+
+        match (self, line) {
+            (LinksB(v), LinkL(l))     => { v.push(l); Ok(()) },
+            (ListB(v),  ListItemL(i)) => { v.push(i); Ok(()) },
+            (QuoteB(v), QuoteL(q))    => { v.push(q); Ok(()) },
+            (_, line)                 => Err(line)
+        }
     }
 }
 
@@ -339,60 +359,34 @@ fn blocks_of_lines(rx: Receiver<Line>,
                    -> thread::JoinHandle<StageResult>
 {
     thread::spawn(move || {
-        use Block::*;
-        use Line::*;
-
-        let mut links:  Vec<Link>   = vec![];
-        let mut items:  Vec<String> = vec![];
-        let mut quotes: Vec<String> = vec![];
+        // the group (links, list or quote) being built, if any
+        let mut group: Option<Block> = None;
 
         for line in rx {
-            let step = match line {
-                LinkL(link) => {
-                    links.push(link);
-                    Step { flush_links: false, ..Step::ends_all(None) }
+            // a line that belongs to the group in progress joins it
+            let line = match group.as_mut() {
+                Some(g) => match g.absorb(line) {
+                    Ok(())    => continue,
+                    Err(line) => line
                 },
-                ListItemL(i) => {
-                    items.push(i);
-                    Step { flush_items: false, ..Step::ends_all(None) }
-                },
-                QuoteL(q) => {
-                    quotes.push(q);
-                    Step { flush_quotes: false, ..Step::ends_all(None) }
-                },
-                BlankL              => Step::ends_all(None),
-                ParaL(p)            => Step::ends_all(Some(ParaB(p))),
-                HeadingL(h)         => Step::ends_all(Some(HeadingB(h))),
-                PreformattedL(a, p) => Step::ends_all(Some(PreformattedB(a, p)))
+                None => line
             };
 
-            if step.flush_links && !links.is_empty() {
-                send_or_stop!(tx, LinksB(take(&mut links)));
+            // anything else ends the group in progress ...
+            if let Some(g) = group.take() {
+                send_or_stop!(tx, g);
             }
 
-            if step.flush_items && !items.is_empty() {
-                send_or_stop!(tx, ListB(take(&mut items)));
-            }
-
-            if step.flush_quotes && !quotes.is_empty() {
-                send_or_stop!(tx, QuoteB(take(&mut quotes)));
-            }
-
-            if let Some(p) = step.payload {
-                send_or_stop!(tx, p);
+            // ... and starts a new group, or is a block of its own
+            match Block::of_line(line) {
+                Some(b) if b.is_group() => group = Some(b),
+                Some(b)                 => send_or_stop!(tx, b),
+                None                    => {}
             }
         }
 
-        if !links.is_empty() {
-            send_or_stop!(tx, LinksB(links));
-        }
-
-        if !items.is_empty() {
-            send_or_stop!(tx, ListB(items));
-        }
-
-        if !quotes.is_empty() {
-            send_or_stop!(tx, QuoteB(quotes));
+        if let Some(g) = group {
+            send_or_stop!(tx, g);
         }
 
         Ok(())
