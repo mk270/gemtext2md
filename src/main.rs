@@ -317,6 +317,22 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
     })
 }
 
+// what one Line does in blocks_of_lines: which groups in progress it ends,
+// and the Block (if any) it produces itself
+struct Step {
+    flush_links:  bool,
+    flush_items:  bool,
+    flush_quotes: bool,
+    payload:      Option<Block>
+}
+
+impl Step {
+    // ends every group in progress
+    fn ends_all(payload: Option<Block>) -> Step {
+        Step { flush_links: true, flush_items: true, flush_quotes: true, payload }
+    }
+}
+
 // aggregate Lines into Blocks
 fn blocks_of_lines(rx: Receiver<Line>,
                    tx: Sender<Block>)
@@ -331,30 +347,38 @@ fn blocks_of_lines(rx: Receiver<Line>,
         let mut quotes: Vec<String> = vec![];
 
         for line in rx {
-            // which accumulators does this line end? (links, items, quotes)
-            let (fl, fi, fq, payload) = match line {
-                LinkL(link)  => { links.push(link);   (false, true,  true,  None) },
-                ListItemL(i) => { items.push(i);      (true,  false, true,  None) },
-                QuoteL(q)    => { quotes.push(q);     (true,  true,  false, None) },
-                BlankL       =>                       (true,  true,  true,  None),
-                ParaL(p)     =>                       (true,  true,  true,  Some(ParaB(p))),
-                HeadingL(h)  =>                       (true,  true,  true,  Some(HeadingB(h))),
-                PreformattedL(a, p) =>                (true,  true,  true,  Some(PreformattedB(a, p)))
+            let step = match line {
+                LinkL(link) => {
+                    links.push(link);
+                    Step { flush_links: false, ..Step::ends_all(None) }
+                },
+                ListItemL(i) => {
+                    items.push(i);
+                    Step { flush_items: false, ..Step::ends_all(None) }
+                },
+                QuoteL(q) => {
+                    quotes.push(q);
+                    Step { flush_quotes: false, ..Step::ends_all(None) }
+                },
+                BlankL              => Step::ends_all(None),
+                ParaL(p)            => Step::ends_all(Some(ParaB(p))),
+                HeadingL(h)         => Step::ends_all(Some(HeadingB(h))),
+                PreformattedL(a, p) => Step::ends_all(Some(PreformattedB(a, p)))
             };
 
-            if fl && !links.is_empty() {
+            if step.flush_links && !links.is_empty() {
                 send_or_stop!(tx, LinksB(take(&mut links)));
             }
 
-            if fi && !items.is_empty() {
+            if step.flush_items && !items.is_empty() {
                 send_or_stop!(tx, ListB(take(&mut items)));
             }
 
-            if fq && !quotes.is_empty() {
+            if step.flush_quotes && !quotes.is_empty() {
                 send_or_stop!(tx, QuoteB(take(&mut quotes)));
             }
 
-            if let Some(p) = payload {
+            if let Some(p) = step.payload {
                 send_or_stop!(tx, p);
             }
         }
