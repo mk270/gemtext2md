@@ -188,7 +188,9 @@ macro_rules! send_or_stop {
     }
 }
 
-fn read_lines(tx: Sender<NumString>) {
+fn read_lines(tx: Sender<NumString>)
+              -> thread::JoinHandle<()>
+{
     thread::spawn(move || {
         let stdin = io::stdin();
 
@@ -200,13 +202,15 @@ fn read_lines(tx: Sender<NumString>) {
                 Err(e) => panic!("couldn't read line {}, {}", lineno, e)
             }
         }
-    });
+    })
 }
 
 // annotate lines with whether they occur within preformatted blocks
 // discard the lines beginning with "```"
 fn gather_preformatted(rx: Receiver<NumString>,
-                       tx: Sender<(bool, NumString)>) {
+                       tx: Sender<(bool, NumString)>)
+                       -> thread::JoinHandle<()>
+{
     thread::spawn(move || {
         let mut pref = false;
 
@@ -216,12 +220,14 @@ fn gather_preformatted(rx: Receiver<NumString>,
                 _ => send_or_stop!(tx, (pref, i))
             }
         }
-    });
+    })
 }
 
 // convert the incoming strings to Lines
 fn decode_lines(rx: Receiver<(bool, NumString)>,
-                tx: Sender<NumLine>) {
+                tx: Sender<NumLine>)
+                -> thread::JoinHandle<()>
+{
     thread::spawn(move || {
         use Line::PreformattedL;
         let mut pref_acc: Vec<String> = vec![];
@@ -243,12 +249,14 @@ fn decode_lines(rx: Receiver<(bool, NumString)>,
         if !pref_acc.is_empty() {
             send_or_stop!(tx, NumLine(PreformattedL(pref_acc), 0));
         }
-    });
+    })
 }
 
 // aggregate Lines into Blocks
 fn blocks_of_lines(rx: Receiver<NumLine>,
-                   tx: Sender<Block>) {
+                   tx: Sender<Block>)
+                   -> thread::JoinHandle<()>
+{
     thread::spawn(move || {
         use Block::*;
         use Line::*;
@@ -277,7 +285,7 @@ fn blocks_of_lines(rx: Receiver<NumLine>,
         if !links.is_empty() {
             send_or_stop!(tx, LinksB(links));
         }
-    });
+    })
 }
 
 fn consume_blocks(rx: Receiver<Block>) -> Result<(), Box<dyn Error>>{
@@ -298,18 +306,26 @@ fn write_blocks(rx: Receiver<Block>) -> io::Result<()> {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let (tx1, rx1) = mpsc::channel();
-    read_lines(tx1);
+    let handle1    = read_lines(tx1);
 
     let (tx2, rx2) = mpsc::channel();
-    gather_preformatted(rx1, tx2);
+    let handle2    = gather_preformatted(rx1, tx2);
 
     let (tx3, rx3) = mpsc::channel();
-    decode_lines(rx2, tx3);
+    let handle3    = decode_lines(rx2, tx3);
 
     let (tx4, rxlast) = mpsc::channel();
-    blocks_of_lines(rx3, tx4);
+    let handle4       = blocks_of_lines(rx3, tx4);
 
-    consume_blocks(rxlast)
+    let result = consume_blocks(rxlast);
+
+    for h in [handle1, handle2, handle3, handle4] {
+        if h.join().is_err() {
+            return Err("some pipeline stage failed".into());
+        }
+    }
+
+    result
 }
 
 fn main() -> ExitCode {
