@@ -122,7 +122,7 @@ impl fmt::Display for Block {
         let s = match self {
             ParaB(p)            => format!("{}\n\n", p),
             PreformattedB(prpr) => format!("```\n{}\n```\n\n", prpr.join("\n")),
-            LinksB(ll)          => string_of_links(ll.to_vec()),
+            LinksB(ll)          => string_of_links(ll),
             HeadingB(h)         => format!("{}\n\n", h)
         };
 
@@ -142,12 +142,12 @@ fn heading_chars(h: &HeadingLevel) -> &'static str {
     s
 }
 
-fn string_of_links(ll: Vec<Link>) -> String {
+fn string_of_links(ll: &[Link]) -> String {
     if ll.is_empty() {
-        return String::from("");
+        return String::new();
     }
 
-    let links: Vec<String> = ll.into_iter()
+    let links: Vec<String> = ll.iter()
         .map(|l| l.to_string()).collect();
 
     format!("{}\n", links.join(""))
