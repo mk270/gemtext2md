@@ -121,14 +121,29 @@ impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Block::*;
 
-        let s = match self {
-            ParaB(p)            => format!("{}\n\n", p),
-            PreformattedB(prpr) => format!("```\n{}\n```\n\n", prpr.join("\n")),
-            LinksB(ll)          => string_of_links(ll),
-            HeadingB(h)         => format!("{}\n\n", h)
-        };
+        match self {
+            ParaB(p)            => write!(f, "{}\n\n", p),
 
-        write!(f, "{}", s)
+            HeadingB(h)         => write!(f, "{}\n\n", h),
+
+            PreformattedB(prpr) => {
+                writeln!(f, "```")?;
+                for line in prpr {
+                    writeln!(f, "{}", line)?;
+                }
+                write!(f, "```\n\n")
+            },
+
+            LinksB(ll)          => {
+                if ll.is_empty() {
+                    return Ok(());
+                }
+                for l in ll {
+                    write!(f, "{}", l)?;
+                }
+                writeln!(f)
+            }
+        }
     }
 }
 
@@ -142,17 +157,6 @@ fn heading_chars(h: &HeadingLevel) -> &'static str {
     };
 
     s
-}
-
-fn string_of_links(ll: &[Link]) -> String {
-    if ll.is_empty() {
-        return String::new();
-    }
-
-    let links: Vec<String> = ll.iter()
-        .map(|l| l.to_string()).collect();
-
-    format!("{}\n", links.join(""))
 }
 
 fn link_of_line(line: String) -> Line {
