@@ -28,7 +28,7 @@ fn pdf(args: &Args) -> Result<(), Box<dyn Error>> {
     };
 
     let mut groff = Command::new("groff")
-        .args(["-mom", "-Tpdf"])
+        .args(["-mom", "-Tpdf", "-K", "utf-8"])
         .stdin(Stdio::piped())
         .stdout(stdout)
         .spawn()
