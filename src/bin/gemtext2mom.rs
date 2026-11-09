@@ -2,9 +2,18 @@
 
 use std::io;
 use std::process::ExitCode;
+use std::sync::mpsc::Receiver;
 
-use gemtext2md::{exit_code, run, mom::write_mom};
+use gemtext2md::{exit_code, run, mom::write_mom, Block};
+
+
+// the last stage of the pipeline: write the Blocks to stdout as mom
+fn write_to_stdout(rx: Receiver<Block>) -> io::Result<()> {
+    let output = io::stdout().lock();
+    write_mom(rx, output)
+}
 
 fn main() -> ExitCode {
-    exit_code("gemtext2mom", run(|rx| write_mom(rx, io::stdout().lock())))
+    let pipeline = run(write_to_stdout);
+    exit_code("gemtext2mom", pipeline)
 }
