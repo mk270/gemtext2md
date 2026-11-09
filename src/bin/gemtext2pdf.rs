@@ -20,7 +20,11 @@ struct Args {
 
     /// Visual style of the document
     #[arg(long, value_enum, default_value_t = StyleName::Default)]
-    style: StyleName
+    style: StyleName,
+
+    /// Leave *asterisks* alone instead of setting the text in italics
+    #[arg(long)]
+    no_italics: bool
 }
 
 fn pdf(args: &Args) -> Result<(), Box<dyn Error>> {
@@ -40,7 +44,8 @@ fn pdf(args: &Args) -> Result<(), Box<dyn Error>> {
 
     // write_mom closes groff's stdin when it finishes, so groff sees EOF
     let groff_in = groff.stdin.take().expect("groff has no stdin");
-    let result = run(|rx| write_mom(rx, groff_in, args.style));
+    let italics = !args.no_italics;
+    let result = run(|rx| write_mom(rx, groff_in, args.style, italics));
 
     if result.is_err() {
         // don't let groff finish a PDF of half a document

@@ -1,0 +1,28 @@
+.TH GEMTEXT2MD 1 "2026-11-09"
+.SH NAME
+gemtext2md \- convert Gemtext to Markdown
+.SH SYNOPSIS
+.B gemtext2md
+.SH DESCRIPTION
+.B gemtext2md
+reads Gemtext on standard input and writes Markdown, intended to be
+CommonMark, to standard output.
+It takes no options.
+.SH INPUT
+The input format is described in
+.BR gemtext (7).
+.SH EXAMPLES
+.nf
+gemtext2md < page.gmi > page.md
+.fi
+.SH EXIT STATUS
+.B 0
+on success, and non-zero if the input is malformed, or if a write or other
+error occurs.
+A diagnostic is printed to standard error.
+.SH SEE ALSO
+.BR gemtext (7),
+.BR gemtext2mom (1),
+.BR gemtext2pdf (1)
+.SH AUTHOR
+Martin Keegan

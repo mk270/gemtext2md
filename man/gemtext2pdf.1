@@ -1,0 +1,158 @@
+.TH GEMTEXT2PDF 1 "2026-11-09"
+.SH NAME
+gemtext2pdf \- convert Gemtext to PDF
+.SH SYNOPSIS
+.B gemtext2pdf
+.RB [ \-o\  \fIFILENAME\fP ]
+.RB [ \-\-style\  \fISTYLE\fP ]
+.RB [ \-\-no\-italics ]
+.SH DESCRIPTION
+.B gemtext2pdf
+reads Gemtext on standard input and writes a PDF to standard output, or to
+the file named with
+.BR \-o .
+The PDF is produced by converting the input to
+.BR groff_mom (7)
+as
+.BR gemtext2mom (1)
+does, and running the result through
+.BR "groff \-mom \-Tpdf" ,
+so
+.BR groff (1)
+must be on the
+.BR PATH .
+Links in the input become clickable links in the PDF.
+The title of the document is the text of its first heading.
+If the document begins with that heading, it appears only as the title;
+otherwise it appears as the title and also remains in the text where it
+was.
+.SH OPTIONS
+.TP
+.BI \-o\  FILENAME
+Write the PDF to
+.I FILENAME
+instead of standard output.
+If conversion fails, the file is removed.
+.TP
+.BI \-\-style\  STYLE
+Select the visual style.
+.I STYLE
+is one of
+.BR default ,
+.BR sans\-serif
+and
+.BR cap\-heads ;
+the default is
+.BR default .
+See
+.BR STYLES .
+.TP
+.B \-\-no\-italics
+Leave asterisks as they are instead of setting the text between them in
+italics.
+See
+.BR ITALICS .
+.TP
+.B \-\-help
+Print a usage message and exit.
+.SH INPUT
+The input format is described in
+.BR gemtext (7).
+.SH STYLES
+The following styles are available.
+.TP
+.B default
+Serif text (Times), bold headings, no paragraph indent, slightly less
+than a line of space between paragraphs, and indented bulleted lists.
+.TP
+.B sans-serif
+As
+.BR default ,
+but in a sans-serif font (Helvetica).
+.TP
+.B cap-heads
+As
+.BR default ,
+but the title and the headings are set in small capitals of normal weight
+rather than in bold.
+.PP
+In every style, running page headers are omitted and page numbers are
+printed without surrounding dashes.
+.SH ITALICS
+Unless
+.B \-\-no\-italics
+is given, a span of text enclosed in asterisks, such as
+.BR *like\ this* ,
+is set in italics, with the asterisks removed.
+The rules, which apply to each paragraph, list item and quotation
+separately, are these:
+.IP \(bu 3
+An opening asterisk must be at the start of the text, or follow whitespace
+or one of the characters
+.BR ( ,
+.BR [ ,
+.BR { ,
+.B \(dq
+or
+.BR \(aq .
+It must be followed by a character that is neither whitespace nor an
+asterisk.
+.IP \(bu 3
+A closing asterisk must be preceded by a character that is neither
+whitespace nor an asterisk.
+It must be at the end of the text, or be followed by whitespace or one of the
+characters
+.BR . ,
+.BR , ,
+.BR ; ,
+.BR : ,
+.BR ! ,
+.BR ? ,
+.BR ) ,
+.BR ] ,
+.BR } ,
+.B \(dq
+or
+.BR \(aq .
+.IP \(bu 3
+Each opening asterisk is paired with the nearest following closing
+asterisk.
+The span must contain at least one character.
+.IP \(bu 3
+Spans do not nest and do not extend beyond one paragraph, list item or
+quotation line.
+.IP \(bu 3
+Any asterisk that is not part of a pair is left as it is, so
+.B 2 * 3 * 4
+and
+.B a*b*c
+are unaffected.
+.IP \(bu 3
+A doubled asterisk, as in
+.BR **text** ,
+is never treated as italics.
+.IP \(bu 3
+Underscores have no special meaning.
+.IP \(bu 3
+Preformatted blocks, headings, link addresses and link labels are not
+searched for italics.
+.PP
+There is no way to escape an asterisk.
+.SH EXAMPLES
+.nf
+gemtext2pdf \-o page.pdf < page.gmi
+gemtext2pdf \-\-style cap\-heads < page.gmi | lpr
+.fi
+.SH EXIT STATUS
+.B 0
+on success, and non-zero if the input is malformed, or if a write or other
+error occurs.
+A diagnostic is printed to standard error.
+.SH SEE ALSO
+.BR gemtext (7),
+.BR gemtext2md (1),
+.BR gemtext2mom (1),
+.BR groff (1),
+.BR groff_mom (7)
+.SH AUTHOR
+Martin Keegan

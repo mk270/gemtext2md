@@ -1,0 +1,90 @@
+.TH GEMTEXT2MOM 1 "2026-11-09"
+.SH NAME
+gemtext2mom \- convert Gemtext to groff mom
+.SH SYNOPSIS
+.B gemtext2mom
+.RB [ \-\-style\  \fISTYLE\fP ]
+.RB [ \-\-no\-italics ]
+.SH DESCRIPTION
+.B gemtext2mom
+reads Gemtext on standard input and writes a document in the
+.BR groff_mom (7)
+macro package to standard output.
+Format it with
+.BR groff (1),
+for example with
+.BR "groff \-mom \-Tpdf" .
+The title of the document is the text of its first heading.
+If the document begins with that heading, it appears only as the title;
+otherwise it appears as the title and also remains in the text where it
+was.
+.SH OPTIONS
+.TP
+.BI \-\-style\  STYLE
+Select the visual style.
+.I STYLE
+is one of
+.BR default ,
+.BR sans\-serif
+and
+.BR cap\-heads ;
+the default is
+.BR default .
+See
+.BR STYLES .
+.TP
+.B \-\-no\-italics
+Leave asterisks as they are instead of setting the text between them in
+italics.
+See
+.BR ITALICS .
+.TP
+.B \-\-help
+Print a usage message and exit.
+.SH INPUT
+The input format is described in
+.BR gemtext (7).
+.SH STYLES
+The following styles are available.
+.TP
+.B default
+Serif text (Times), bold headings, no paragraph indent, slightly less
+than a line of space between paragraphs, and indented bulleted lists.
+.TP
+.B sans-serif
+As
+.BR default ,
+but in a sans-serif font (Helvetica).
+.TP
+.B cap-heads
+As
+.BR default ,
+but the title and the headings are set in small capitals of normal weight
+rather than in bold.
+.PP
+In every style, running page headers are omitted and page numbers are
+printed without surrounding dashes.
+.SH ITALICS
+Unless
+.B \-\-no\-italics
+is given, text enclosed in asterisks is set in italics.
+The rules for what counts as such text are given in
+.BR gemtext2pdf (1).
+.SH EXAMPLES
+.nf
+gemtext2mom < page.gmi | groff \-mom \-Tpdf > page.pdf
+gemtext2mom \-\-style sans\-serif < page.gmi > page.mom
+.fi
+.SH EXIT STATUS
+.B 0
+on success, and non-zero if the input is malformed, or if a write or other
+error occurs.
+A diagnostic is printed to standard error.
+.SH SEE ALSO
+.BR gemtext (7),
+.BR gemtext2md (1),
+.BR gemtext2pdf (1),
+.BR groff (1),
+.BR groff_mom (7)
+.SH AUTHOR
+Martin Keegan

@@ -28,6 +28,12 @@ The mom and PDF programs take an optional `--style` argument:
 `default` (serif fonts), `sans-serif`, or `cap-heads` (default,
 with small-caps headings).
 
+Text between asterisks, like *this*, is set in italics in the mom and PDF
+output, subject to some rules: the opening asterisk must follow whitespace
+or an opening bracket or quote, the closing one must precede whitespace or
+punctuation, and `**` is left alone. Use `--no-italics` to leave asterisks
+as they are.
+
 Dependencies
 ------------
 

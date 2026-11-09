@@ -1,0 +1,61 @@
+.TH GEMTEXT 7 "2026-11-09"
+.SH NAME
+gemtext \- the Gemtext markup format, as read by gemtext2md and its siblings
+.SH DESCRIPTION
+Gemtext is a simple line-oriented text format.
+This page describes how
+.BR gemtext2md (1),
+.BR gemtext2mom (1)
+and
+.BR gemtext2pdf (1)
+interpret it.
+.SH SPECIFICATION
+Gemtext is defined by the Gemini project's specification, at:
+.PP
+.UR https://geminiprotocol.net/docs/gemtext-specification.gmi
+.UE
+.SH LINE TYPES
+These are the line types of the specification.
+Each line is interpreted on its own.
+.TP
+.B =>\ URL [LABEL]
+A link.
+.TP
+.B #\ TEXT, ##\ TEXT, ###\ TEXT
+Headings of level 1, 2 and 3.
+.TP
+.B *\ TEXT
+A list item.
+.TP
+.B >\ TEXT
+A quotation line.
+.TP
+.B \(ga\(ga\(ga
+Starts and ends a preformatted block.
+Text after the opening marker is an optional description of the block.
+.PP
+Any other non-blank line is a paragraph.
+.SH GROUPING
+The specification treats every line as a separate entity and defines no
+larger structures except preformatted blocks.
+These programs go beyond it in the following way, which is not part of
+the specification.
+.IP \(bu 3
+Consecutive link lines are treated as one list of links.
+.IP \(bu 3
+Consecutive list item lines are treated as one list.
+.IP \(bu 3
+Consecutive quotation lines are treated as one quotation, each line being
+a paragraph of it.
+.IP \(bu 3
+Blank lines separate blocks and are otherwise ignored, rather than
+being rendered as vertical space.
+.SH SEE ALSO
+.UR https://geminiprotocol.net/docs/gemtext-specification.gmi
+Gemtext specification
+.UE ,
+.BR gemtext2md (1),
+.BR gemtext2mom (1),
+.BR gemtext2pdf (1)
+.SH AUTHOR
+Martin Keegan
