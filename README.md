@@ -3,14 +3,16 @@ gemtext2md suite
 
 A convertor for Gemini-formatted text, by Martin Keegan.
 
-Some care is taken to get reasonable whitespace around the various blocks,
-and to consolidate consecutive links into lists.
+The tools generate PDF, Markdown and groff mom.
 
 The three tools:
 
 * gemtext2md
 * gemtext2pdf
 * gemtext2mom
+
+Some care is taken to get reasonable whitespace around the various blocks,
+and to consolidate consecutive links into lists.
 
 Usage
 -----
