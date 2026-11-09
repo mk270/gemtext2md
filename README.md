@@ -41,7 +41,7 @@ Dependencies
 
 The PDF generation pathway requires `groff` to be on the PATH.
 
-Known bugs
-----------
+Licence
+-------
 
-The formatting of mom and PDF is currently quite bad.
+Available under the Apache licence.
