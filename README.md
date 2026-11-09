@@ -24,6 +24,10 @@ Use:
     $ gemtext2mom < myfile.gemini > myfile.mom
     $ gemtext2pdf -o myfile.pdf < myfile.gemini
 
+The mom and PDF programs take an optional `--style` argument:
+`default` (serif fonts), `sans-serif`, or `cap-heads` (default,
+with small-caps headings).
+
 Dependencies
 ------------
 
