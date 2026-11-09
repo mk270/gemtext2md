@@ -24,6 +24,11 @@ Use:
     $ gemtext2mom < myfile.gemini > myfile.mom
     $ gemtext2pdf -o myfile.pdf < myfile.gemini
 
+Dependencies
+------------
+
+The PDF generation pathway requires `groff` to be on the PATH.
+
 Known bugs
 ----------
 
