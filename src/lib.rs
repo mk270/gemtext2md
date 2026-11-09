@@ -1,12 +1,13 @@
-/* gemtext2md, A gemtext to markdown converter, by Martin Keegan
+/* gemtext2md, A gemtext to markdown, mom and PDF converter, by Martin Keegan
 
    To the extent (if any) permissible by law, Copyright (C) 2023  Martin Keegan
 
    This programme is free software; you may redistribute and/or modify it under
    the terms of the Apache Software Licence v2.0. */
 
-/* Usage: as a commandline filter. The program reads Gemtext on stdin and
-   outputs Markdown, hopefully in CommonMark format. */
+/* Usage: the binaries in src/bin are commandline filters. Each reads Gemtext
+   on stdin; gemtext2md outputs Markdown, hopefully in CommonMark format,
+   gemtext2mom outputs groff mom, and gemtext2pdf outputs PDF. */
 
 /* The code below is a fairly bloody-minded hand translation from
    the OCaml original into somewhat unidiomatic Rust. */
@@ -18,10 +19,12 @@ use std::fmt;
 use std::error::Error;
 use std::process::ExitCode;
 
+pub mod mom;
+
 type StageResult = Result<(), String>;
 
 #[derive(Debug)]
-enum HeadingLevel {
+pub enum HeadingLevel {
     H1,
     H2,
     H3
@@ -34,10 +37,10 @@ enum Malformed {
 }
 
 #[derive(Debug)]
-struct Heading(HeadingLevel, String);
+pub struct Heading(pub HeadingLevel, pub String);
 
 #[derive(Debug)]
-struct Link(String, Option<String>);
+pub struct Link(pub String, pub Option<String>);
 
 #[derive(Debug)]
 enum Line {
@@ -51,7 +54,7 @@ enum Line {
 }
 
 #[derive(Debug)]
-enum Block {
+pub enum Block {
     PreformattedB(Option<String>, Vec<String>),
     ParaB(String),
     LinksB(Vec<Link>),
@@ -395,8 +398,11 @@ fn blocks_of_lines(rx: Receiver<Line>,
 
 enum Outcome { Complete, ReaderGone }
 
-fn consume_blocks(rx: Receiver<Block>) -> Result<Outcome, Box<dyn Error>>{
-    match write_blocks(rx) {
+fn consume_blocks<W>(rx: Receiver<Block>, write: W)
+                     -> Result<Outcome, Box<dyn Error>>
+    where W: FnOnce(Receiver<Block>) -> io::Result<()>
+{
+    match write(rx) {
         Ok(())
             => Ok(Outcome::Complete),
 
@@ -408,7 +414,8 @@ fn consume_blocks(rx: Receiver<Block>) -> Result<Outcome, Box<dyn Error>>{
     }
 }
 
-fn write_blocks(rx: Receiver<Block>) -> io::Result<()> {
+// write the Blocks to stdout as Markdown, as they arrive
+pub fn write_markdown(rx: Receiver<Block>) -> io::Result<()> {
     let mut out = io::stdout().lock();
 
     for b in rx {
@@ -417,7 +424,10 @@ fn write_blocks(rx: Receiver<Block>) -> io::Result<()> {
     out.flush()
 }
 
-fn run() -> Result<(), Box<dyn Error>> {
+// run the pipeline on stdin, handing its Blocks to `write`
+pub fn run<W>(write: W) -> Result<(), Box<dyn Error>>
+    where W: FnOnce(Receiver<Block>) -> io::Result<()>
+{
     let (tx1, rx1) = mpsc::channel();
     let handle1    = read_lines(tx1);
 
@@ -430,7 +440,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let (tx4, rxlast) = mpsc::channel();
     let handle4       = blocks_of_lines(rx3, tx4);
 
-    if let Outcome::ReaderGone = consume_blocks(rxlast)? {
+    if let Outcome::ReaderGone = consume_blocks(rxlast, write)? {
         return Ok(());
     }
 
@@ -449,11 +459,14 @@ fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn main() -> ExitCode {
-    match run() {
+// report the outcome of `run` the way a commandline filter should
+pub fn exit_code(name: &str, result: Result<(), Box<dyn Error>>)
+                 -> ExitCode
+{
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("gemtext2md: {e}");
+            eprintln!("{name}: {e}");
             ExitCode::FAILURE
         }
     }
