@@ -9,14 +9,22 @@ use std::process::{Command, ExitCode, Stdio};
 
 use clap::Parser;
 
-use gemtext2md::{exit_code, run, mom::write_mom};
+use gemtext2md::{exit_code, run, mom::{write_mom, StyleName}};
 
 #[derive(Parser)]
 #[command(about = "Convert Gemtext on stdin to PDF")]
 struct Args {
     /// Write the PDF to FILENAME instead of stdout
     #[arg(short = 'o', value_name = "FILENAME")]
-    output: Option<PathBuf>
+    output: Option<PathBuf>,
+
+    /// Visual style of the document
+    #[arg(long, value_enum, default_value_t = StyleName::Default)]
+    style: StyleName,
+
+    /// Leave *asterisks* alone instead of setting the text in italics
+    #[arg(long)]
+    no_italics: bool
 }
 
 fn pdf(args: &Args) -> Result<(), Box<dyn Error>> {
@@ -36,7 +44,8 @@ fn pdf(args: &Args) -> Result<(), Box<dyn Error>> {
 
     // write_mom closes groff's stdin when it finishes, so groff sees EOF
     let groff_in = groff.stdin.take().expect("groff has no stdin");
-    let result = run(|rx| write_mom(rx, groff_in));
+    let italics = !args.no_italics;
+    let result = run(|rx| write_mom(rx, groff_in, args.style, italics));
 
     if result.is_err() {
         // don't let groff finish a PDF of half a document
