@@ -113,6 +113,8 @@ fn level(h: &HeadingLevel) -> u8 {
 
 fn write_header(out: &mut impl Write, title: Option<&str>,
                 st: &Style) -> io::Result<()> {
+    // PAPER must come first, before anything else
+    writeln!(out, ".PAPER A4")?;
     if let Some(t) = title {
         writeln!(out, ".TITLE {}", arg(t))?;
         writeln!(out, ".PDF_TITLE {}", arg(t))?;
